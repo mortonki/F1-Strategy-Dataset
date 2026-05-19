@@ -1,0 +1,38 @@
+# Python Environment Rules
+
+This project uses uv-managed virtual environments.
+
+Always use the local virtual environment interpreter located at:
+
+.venv/bin/python
+
+Do not use:
+- system Python
+- pyenv Python
+- global pip
+- poetry environments
+- conda environments
+
+When running Python commands:
+- use `.venv/bin/python`
+- use `.venv/bin/pip`
+- prefer `uv run` where appropriate
+
+Examples:
+- `.venv/bin/python script.py`
+- `.venv/bin/python -m pytest`
+- `.venv/bin/pip install package`
+- `uv run python script.py`
+
+Assume dependencies are installed into the local `.venv`.
+
+If the environment does not exist, create it with:
+
+```bash
+uv venv
+
+# Other rules
+
+Do not read anything in the directory `archive`.
+
+Do not open large (n>100 lines) tabular data files (e.g. *.csv) without permission. 
