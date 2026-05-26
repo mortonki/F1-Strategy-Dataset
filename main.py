@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -9,6 +10,45 @@ from preprocessing import preprocess_f1_data
 
 
 def main():
+    # Parse command-line arguments for hyperparameter tuning
+    parser = argparse.ArgumentParser(
+        description='F1 Strategy Prediction using LightGBM',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    
+    parser.add_argument(
+        '--n_estimators',
+        type=int,
+        default=1000,
+        help='Number of trees in the LightGBM model'
+    )
+    parser.add_argument(
+        '--learning_rate',
+        type=float,
+        default=0.05,
+        help='Learning rate (step-down factor) for the model'
+    )
+    parser.add_argument(
+        '--num_leaves',
+        type=int,
+        default=31,
+        help='Maximum number of leaves in each tree'
+    )
+    parser.add_argument(
+        '--random_state',
+        type=int,
+        default=42,
+        help='Random seed for reproducibility'
+    )
+    parser.add_argument(
+        '--n_jobs',
+        type=int,
+        default=-1,
+        help='Number of parallel jobs (-1 for all available CPUs)'
+    )
+    
+    args = parser.parse_args()
+    
     # Load the F1 Strategy Dataset
     df = pd.read_csv('f1_strategy_dataset_v4.csv')
     
@@ -33,15 +73,15 @@ def main():
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
     
     # Preprocess test data
-    X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
+    #X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
     
-    # Train LightGBM model
+    # Train LightGBM model with hyperparameters from command-line arguments
     model = lgb.LGBMClassifier(
-        n_estimators=1000,
-        learning_rate=0.05,
-        num_leaves=31,
-        random_state=42,
-        n_jobs=-1
+        n_estimators=args.n_estimators,
+        learning_rate=args.learning_rate,
+        num_leaves=args.num_leaves,
+        random_state=args.random_state,
+        n_jobs=args.n_jobs
     )
     model.fit(X_train, y_train)
     
