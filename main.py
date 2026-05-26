@@ -93,6 +93,14 @@ def main():
     print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
     print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
     
+    # Evaluate on training set
+    y_pred_train = model.predict(X_train)
+    y_pred_proba_train = model.predict_proba(X_train)
+    
+    print("\n=== Training Results ===")
+    print(f"Accuracy: {accuracy_score(y_train, y_pred_train):.4f}")
+    print(f"AUC-ROC: {roc_auc_score(y_train, y_pred_proba_train[:, 1]):.4f}")
+    
     # Evaluate on test set
     #y_pred_test = model.predict(X_test)
     #y_pred_proba_test = model.predict_proba(X_test)
