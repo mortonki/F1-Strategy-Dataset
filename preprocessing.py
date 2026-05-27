@@ -46,23 +46,23 @@ def preprocess_f1_data(
     """
     # Create lagged features for Position, LapTime, and degradation metrics
     # Group by Driver, Race, Year to maintain temporal order within sequences
-    df['Position_lag1'] = df.groupby(['Driver', 'Race', 'Year'])['Position'].shift(1)
-    df['Position_lag2'] = df.groupby(['Driver', 'Race', 'Year'])['Position'].shift(2)
-    df['Position_lag3'] = df.groupby(['Driver', 'Race', 'Year'])['Position'].shift(3)
+    df['Position_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(1)
+    df['Position_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(2)
+    df['Position_lag3'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(3)
     
     # LapTime lags
-    df['LapTime_lag1'] = df.groupby(['Driver', 'Race', 'Year'])['LapTime (s)'].shift(1)
-    df['LapTime_lag2'] = df.groupby(['Driver', 'Race', 'Year'])['LapTime (s)'].shift(2)
-    df['LapTime_lag3'] = df.groupby(['Driver', 'Race', 'Year'])['LapTime (s)'].shift(3)
+    df['LapTime_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(1)
+    df['LapTime_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(2)
+    df['LapTime_lag3'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(3)
     
     # Rolling average pace (using LapTime_Delta as a proxy for pace change)
     # Rolling average of LapTime_Delta over 3 laps
-    df['Rolling_avg_pace'] = df.groupby(['Driver', 'Race', 'Year'])['LapTime_Delta'].transform(
+    df['Rolling_avg_pace'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime_Delta'].transform(
         lambda x: x.rolling(window=3, min_periods=1).mean()
     )
     
     # Rolling degradation (rolling average of Cumulative_Degradation)
-    df['Rolling_degradation'] = df.groupby(['Driver', 'Race', 'Year'])['Cumulative_Degradation'].transform(
+    df['Rolling_degradation'] = df.groupby(['Year', 'Race', 'Driver'])['Cumulative_Degradation'].transform(
         lambda x: x.rolling(window=3, min_periods=1).mean()
     )
     

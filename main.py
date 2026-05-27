@@ -8,6 +8,7 @@ from sklearn.metrics import accuracy_score, roc_auc_score
 import lightgbm as lgb
 from preprocessing import preprocess_f1_data
 from mlflow_utils import init_experiment, log_parameters, log_metrics, log_model, log_experiment_info, log_data_stats, log_model_info, log_all
+from hyperparameter_search import run_grid_search, run_random_search
 
 
 def main():
@@ -17,6 +18,13 @@ def main():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
+    parser.add_argument(
+        '--search',
+        type=str,
+        default='train',
+        choices=['train', 'grid', 'random'],
+        help='Mode: train (single model), grid (grid search), random (random search)'
+    )
     parser.add_argument(
         '--n_estimators',
         type=int,
@@ -47,6 +55,12 @@ def main():
         default=-1,
         help='Number of parallel jobs (-1 for all available CPUs)'
     )
+    parser.add_argument(
+        '--n_iter',
+        type=int,
+        default=20,
+        help='Number of iterations for random search'
+    )
     
     args = parser.parse_args()
     
@@ -76,48 +90,221 @@ def main():
     # Preprocess test data
     #X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
     
-    # Train LightGBM model with hyperparameters from command-line arguments
-    model = lgb.LGBMClassifier(
-        n_estimators=args.n_estimators,
-        learning_rate=args.learning_rate,
-        num_leaves=args.num_leaves,
-        random_state=args.random_state,
-        n_jobs=args.n_jobs
-    )
-    model.fit(X_train, y_train)
-    
-    # Evaluate on training set
-    y_pred_train = model.predict(X_train)
-    y_pred_proba_train = model.predict_proba(X_train)
-    
-    print("\n=== Training Results ===")
-    print(f"Accuracy: {accuracy_score(y_train, y_pred_train):.4f}")
-    print(f"AUC-ROC: {roc_auc_score(y_train, y_pred_proba_train[:, 1]):.4f}")
+    if args.search == 'train':
+        # Train single model with specified hyperparameters
+        model = lgb.LGBMClassifier(
+            n_estimators=args.n_estimators,
+            learning_rate=args.learning_rate,
+            num_leaves=args.num_leaves,
+            random_state=args.random_state,
+            n_jobs=args.n_jobs
+        )
+        model.fit(X_train, y_train)
+        
+        # Evaluate on training set
+        y_pred_train = model.predict(X_train)
+        y_pred_proba_train = model.predict_proba(X_train)
+        
+        print("\n=== Training Results ===")
+        print(f"Accuracy: {accuracy_score(y_train, y_pred_train):.4f}")
+        print(f"AUC-ROC: {roc_auc_score(y_train, y_pred_proba_train[:, 1]):.4f}")
 
-    # Evaluate on validation set
-    y_pred_val = model.predict(X_val)
-    y_pred_proba_val = model.predict_proba(X_val)
-    
-    print("\n=== Validation Results ===")
-    print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
-    print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
-    
-    # Evaluate on test set
-    #y_pred_test = model.predict(X_test)
-    #y_pred_proba_test = model.predict_proba(X_test)
-    
-    #print("\n=== Test Results ===")
-    #print(f"Accuracy: {accuracy_score(y_test, y_pred_test):.4f}")
-    #print(f"AUC-ROC: {roc_auc_score(y_test, y_pred_proba_test[:, 1]):.4f}")
-    
-    # Log only essential hyperparameters and metrics to MLflow
-    # Reduced scope: no dataset statistics, class distributions, or feature names
-    log_all(model, args, {
-        "train_accuracy": accuracy_score(y_train, y_pred_train),
-        "train_auc_roc": roc_auc_score(y_train, y_pred_proba_train[:, 1]),
-        "val_accuracy": accuracy_score(y_val, y_pred_val),
-        "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
-    })
+        # Evaluate on validation set
+        y_pred_val = model.predict(X_val)
+        y_pred_proba_val = model.predict_proba(X_val)
+        
+        print("\n=== Validation Results ===")
+        print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
+        print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
+        
+        # Evaluate on test set
+        #y_pred_test = model.predict(X_test)
+        #y_pred_proba_test = model.predict_proba(X_test)
+        
+        #print("\n=== Test Results ===")
+        #print(f"Accuracy: {accuracy_score(y_test, y_pred_test):.4f}")
+        #print(f"AUC-ROC: {roc_auc_score(y_test, y_pred_proba_test[:, 1]):.4f}")
+        
+        # Log only essential hyperparameters and metrics to MLflow
+        # Reduced scope: no dataset statistics, class distributions, or feature names
+        log_all(model, args, {
+            "train_accuracy": accuracy_score(y_train, y_pred_train),
+            "train_auc_roc": roc_auc_score(y_train, y_pred_proba_train[:, 1]),
+            "val_accuracy": accuracy_score(y_val, y_pred_val),
+            "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+        })
+        
+    elif args.search == 'grid':
+        # Run grid search
+        print("\n=== Running Grid Search ===")
+        results = run_grid_search(df, search_type='full', n_jobs=args.n_jobs, verbose=1)
+        
+        print("\n=== Best Hyperparameters ===")
+        print(f"n_estimators: {results['best_params']['n_estimators']}")
+        print(f"learning_rate: {results['best_params']['learning_rate']}")
+        print(f"num_leaves: {results['best_params']['num_leaves']}")
+        print(f"max_depth: {results['best_params']['max_depth']}")
+        print(f"min_child_samples: {results['best_params']['min_child_samples']}")
+        print(f"subsample: {results['best_params']['subsample']}")
+        print(f"colsample_bytree: {results['best_params']['colsample_bytree']}")
+        print(f"reg_alpha: {results['best_params']['reg_alpha']}")
+        print(f"reg_lambda: {results['best_params']['reg_lambda']}")
+        print(f"min_data_for_leaf: {results['best_params']['min_data_for_leaf']}")
+        print(f"min_data_for_host: {results['best_params']['min_data_for_host']}")
+        print(f"feature_fraction: {results['best_params']['feature_fraction']}")
+        print(f"bagging_fraction: {results['best_params']['bagging_fraction']}")
+        print(f"bagging_freq: {results['best_params']['bagging_freq']}")
+        print(f"verbose: {results['best_params']['verbose']}")
+        print(f"seed: {results['best_params']['seed']}")
+        
+        print("\n=== Best CV Score ===")
+        print(f"AUC-ROC: {results['best_score']:.4f}")
+        print(f"Validation Accuracy: {results['val_accuracy']:.4f}")
+        print(f"Validation AUC-ROC: {results['val_auc_roc']:.4f}")
+        
+        # Train final model with best parameters
+        best_model = lgb.LGBMClassifier(
+            n_estimators=results['best_params']['n_estimators'],
+            learning_rate=results['best_params']['learning_rate'],
+            num_leaves=results['best_params']['num_leaves'],
+            max_depth=results['best_params']['max_depth'],
+            min_child_samples=results['best_params']['min_child_samples'],
+            subsample=results['best_params']['subsample'],
+            colsample_bytree=results['best_params']['colsample_bytree'],
+            reg_alpha=results['best_params']['reg_alpha'],
+            reg_lambda=results['best_params']['reg_lambda'],
+            min_data_for_leaf=results['best_params']['min_data_for_leaf'],
+            min_data_for_host=results['best_params']['min_data_for_host'],
+            feature_fraction=results['best_params']['feature_fraction'],
+            bagging_fraction=results['best_params']['bagging_fraction'],
+            bagging_freq=results['best_params']['bagging_freq'],
+            verbose=results['best_params']['verbose'],
+            random_state=results['best_params']['seed'],
+            n_jobs=args.n_jobs
+        )
+        best_model.fit(X_train, y_train)
+        
+        # Evaluate on validation set
+        y_pred_val = best_model.predict(X_val)
+        y_pred_proba_val = best_model.predict_proba(X_val)
+        
+        print("\n=== Final Validation Results ===")
+        print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
+        print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
+        
+        # Log best model
+        log_all(best_model, type('Args', (), {
+            'n_estimators': results['best_params']['n_estimators'],
+            'learning_rate': results['best_params']['learning_rate'],
+            'num_leaves': results['best_params']['num_leaves'],
+            'max_depth': results['best_params']['max_depth'],
+            'min_child_samples': results['best_params']['min_child_samples'],
+            'subsample': results['best_params']['subsample'],
+            'colsample_bytree': results['best_params']['colsample_bytree'],
+            'reg_alpha': results['best_params']['reg_alpha'],
+            'reg_lambda': results['best_params']['reg_lambda'],
+            'min_data_for_leaf': results['best_params']['min_data_for_leaf'],
+            'min_data_for_host': results['best_params']['min_data_for_host'],
+            'feature_fraction': results['best_params']['feature_fraction'],
+            'bagging_fraction': results['best_params']['bagging_fraction'],
+            'bagging_freq': results['best_params']['bagging_freq'],
+            'verbose': results['best_params']['verbose'],
+            'seed': results['best_params']['seed'],
+            'random_state': results['best_params'].get('seed', 42),
+            'n_jobs': results['best_params'].get('n_jobs', -1)
+        }), {
+            "val_accuracy": accuracy_score(y_val, y_pred_val),
+            "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+        })
+        
+        # Save best model
+        log_model(best_model, artifact_path="best_model")
+        
+    elif args.search == 'random':
+        # Run random search
+        print("\n=== Running Random Search ===")
+        results = run_random_search(df, n_iter=args.n_iter, n_jobs=args.n_jobs, verbose=1)
+        
+        print("\n=== Best Hyperparameters ===")
+        print(f"n_estimators: {results['best_params']['n_estimators']}")
+        print(f"learning_rate: {results['best_params']['learning_rate']}")
+        print(f"num_leaves: {results['best_params']['num_leaves']}")
+        print(f"max_depth: {results['best_params']['max_depth']}")
+        print(f"min_child_samples: {results['best_params']['min_child_samples']}")
+        print(f"subsample: {results['best_params']['subsample']}")
+        print(f"colsample_bytree: {results['best_params']['colsample_bytree']}")
+        print(f"reg_alpha: {results['best_params']['reg_alpha']}")
+        print(f"reg_lambda: {results['best_params']['reg_lambda']}")
+        print(f"min_data_for_leaf: {results['best_params']['min_data_for_leaf']}")
+        print(f"min_data_for_host: {results['best_params']['min_data_for_host']}")
+        print(f"feature_fraction: {results['best_params']['feature_fraction']}")
+        print(f"bagging_fraction: {results['best_params']['bagging_fraction']}")
+        print(f"bagging_freq: {results['best_params']['bagging_freq']}")
+        print(f"verbose: {results['best_params']['verbose']}")
+        print(f"seed: {results['best_params']['seed']}")
+        
+        print("\n=== Best CV Score ===")
+        print(f"AUC-ROC: {results['best_score']:.4f}")
+        print(f"Validation Accuracy: {results['val_accuracy']:.4f}")
+        print(f"Validation AUC-ROC: {results['val_auc_roc']:.4f}")
+        
+        # Train final model with best parameters
+        best_model = lgb.LGBMClassifier(
+            n_estimators=results['best_params']['n_estimators'],
+            learning_rate=results['best_params']['learning_rate'],
+            num_leaves=results['best_params']['num_leaves'],
+            max_depth=results['best_params']['max_depth'],
+            min_child_samples=results['best_params']['min_child_samples'],
+            subsample=results['best_params']['subsample'],
+            colsample_bytree=results['best_params']['colsample_bytree'],
+            reg_alpha=results['best_params']['reg_alpha'],
+            reg_lambda=results['best_params']['reg_lambda'],
+            min_data_for_leaf=results['best_params']['min_data_for_leaf'],
+            min_data_for_host=results['best_params']['min_data_for_host'],
+            feature_fraction=results['best_params']['feature_fraction'],
+            bagging_fraction=results['best_params']['bagging_fraction'],
+            bagging_freq=results['best_params']['bagging_freq'],
+            verbose=results['best_params']['verbose'],
+            random_state=results['best_params']['seed'],
+            n_jobs=args.n_jobs
+        )
+        best_model.fit(X_train, y_train)
+        
+        # Evaluate on validation set
+        y_pred_val = best_model.predict(X_val)
+        y_pred_proba_val = best_model.predict_proba(X_val)
+        
+        print("\n=== Final Validation Results ===")
+        print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
+        print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
+        
+        # Log best model
+        log_all(best_model, type('Args', (), {
+            'n_estimators': results['best_params']['n_estimators'],
+            'learning_rate': results['best_params']['learning_rate'],
+            'num_leaves': results['best_params']['num_leaves'],
+            'max_depth': results['best_params']['max_depth'],
+            'min_child_samples': results['best_params']['min_child_samples'],
+            'subsample': results['best_params']['subsample'],
+            'colsample_bytree': results['best_params']['colsample_bytree'],
+            'reg_alpha': results['best_params']['reg_alpha'],
+            'reg_lambda': results['best_params']['reg_lambda'],
+            'min_data_for_leaf': results['best_params']['min_data_for_leaf'],
+            'min_data_for_host': results['best_params']['min_data_for_host'],
+            'feature_fraction': results['best_params']['feature_fraction'],
+            'bagging_fraction': results['best_params']['bagging_fraction'],
+            'bagging_freq': results['best_params']['bagging_freq'],
+            'verbose': results['best_params']['verbose'],
+                'seed': results['best_params']['seed'],
+                'random_state': results['best_params'].get('seed', 42),
+                'n_jobs': results['best_params'].get('n_jobs', -1)
+            }), {
+            "val_accuracy": accuracy_score(y_val, y_pred_val),
+            "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+        })
+        
+        # Save best model
+        log_model(best_model, artifact_path="best_model")
 
 
 if __name__ == "__main__":
