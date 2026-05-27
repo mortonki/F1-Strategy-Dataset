@@ -7,6 +7,7 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import accuracy_score, roc_auc_score
 import lightgbm as lgb
 from preprocessing import preprocess_f1_data
+from mlflow_utils import init_experiment, log_parameters, log_metrics, log_model, log_experiment_info, log_data_stats, log_model_info, log_all
 
 
 def main():
@@ -85,6 +86,14 @@ def main():
     )
     model.fit(X_train, y_train)
     
+    # Evaluate on training set
+    y_pred_train = model.predict(X_train)
+    y_pred_proba_train = model.predict_proba(X_train)
+    
+    print("\n=== Training Results ===")
+    print(f"Accuracy: {accuracy_score(y_train, y_pred_train):.4f}")
+    print(f"AUC-ROC: {roc_auc_score(y_train, y_pred_proba_train[:, 1]):.4f}")
+
     # Evaluate on validation set
     y_pred_val = model.predict(X_val)
     y_pred_proba_val = model.predict_proba(X_val)
@@ -93,14 +102,6 @@ def main():
     print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
     print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
     
-    # Evaluate on training set
-    y_pred_train = model.predict(X_train)
-    y_pred_proba_train = model.predict_proba(X_train)
-    
-    print("\n=== Training Results ===")
-    print(f"Accuracy: {accuracy_score(y_train, y_pred_train):.4f}")
-    print(f"AUC-ROC: {roc_auc_score(y_train, y_pred_proba_train[:, 1]):.4f}")
-    
     # Evaluate on test set
     #y_pred_test = model.predict(X_test)
     #y_pred_proba_test = model.predict_proba(X_test)
@@ -108,6 +109,15 @@ def main():
     #print("\n=== Test Results ===")
     #print(f"Accuracy: {accuracy_score(y_test, y_pred_test):.4f}")
     #print(f"AUC-ROC: {roc_auc_score(y_test, y_pred_proba_test[:, 1]):.4f}")
+    
+    # Log only essential hyperparameters and metrics to MLflow
+    # Reduced scope: no dataset statistics, class distributions, or feature names
+    log_all(model, args, {
+        "train_accuracy": accuracy_score(y_train, y_pred_train),
+        "train_auc_roc": roc_auc_score(y_train, y_pred_proba_train[:, 1]),
+        "val_accuracy": accuracy_score(y_val, y_pred_val),
+        "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+    })
 
 
 if __name__ == "__main__":
