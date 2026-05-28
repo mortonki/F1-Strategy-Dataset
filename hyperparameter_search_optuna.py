@@ -183,6 +183,7 @@ def run_optuna_search(
     print(f"\nStarting Optuna Search ({n_trials} trials)...")
     study.optimize(
         lambda study: objective(study, train_df, val_df, n_trials=n_trials, n_jobs=n_jobs),
+        n_trials=n_trials,
         show_progress_bar=verbose > 0
     )
     
@@ -208,8 +209,47 @@ def run_optuna_search(
     }
     best_score = -study.best_value  # Convert back to positive AUC-ROC
     
-    # Get best model
-    best_model = study.best_trial.frozen().values['trial'].values[0]
+    # Get best model by retraining with best parameters
+    best_params = study.best_trial.params
+    
+    # Create imputer and encoder
+    imputer = SimpleImputer(strategy='most_frequent')
+    encoder = OrdinalEncoder()
+    
+    # Preprocess training data
+    X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
+    
+    # Preprocess validation data
+    X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
+    
+    # Define LightGBM classifier
+    lgb_model = lgb.LGBMClassifier(
+        n_estimators=best_params['n_estimators'],
+        learning_rate=best_params['learning_rate'],
+        num_leaves=best_params['num_leaves'],
+        max_depth=best_params['max_depth'],
+        min_child_samples=best_params['min_child_samples'],
+        subsample=best_params['subsample'],
+        colsample_bytree=best_params['colsample_bytree'],
+        reg_alpha=best_params['reg_alpha'],
+        reg_lambda=best_params['reg_lambda'],
+        min_data_for_leaf=best_params['min_data_for_leaf'],
+        min_data_for_host=best_params['min_data_for_host'],
+        feature_fraction=best_params['feature_fraction'],
+        bagging_fraction=best_params['bagging_fraction'],
+        bagging_freq=best_params['bagging_freq'],
+        verbose=best_params['verbose'],
+        n_jobs=n_jobs,
+        random_state=best_params['seed']
+    )
+    
+    # Train model with early stopping
+    lgb_model.fit(
+        X_train, y_train,
+        eval_set=[(X_val, y_val)],  # Validation data for early stopping
+        callbacks=[lgb.early_stopping(stopping_rounds=50)], # Number of early stopping rounds
+    )
+    best_model = lgb_model
     
     # Evaluate on validation set
     y_pred_val = best_model.predict(X_val)
@@ -243,7 +283,8 @@ def run_optuna_search(
         'bagging_freq': best_params.get('bagging_freq', 0),
         'verbose': best_params.get('verbose', 0),
         'seed': best_params.get('seed', 42),
-        'random_state': best_params.get('random_state', 42)
+        'random_state': best_params.get('random_state', 42),
+        'n_jobs': n_jobs
     }), {
         "val_accuracy": val_accuracy,
         "val_auc_roc": val_auc_roc,
@@ -326,7 +367,7 @@ def main():
     
     # Print all trial results
     print("\n=== All Trial Results ===")
-    for i, trial in enumerate(study.trials):
+    for i, trial in enumerate(results['study'].trials):
         print(f"Trial {i+1}: {trial.value:.4f} (AUC-ROC: {-trial.value:.4f})")
 
 
