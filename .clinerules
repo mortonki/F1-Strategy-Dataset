@@ -36,3 +36,7 @@ uv venv
 Do not read anything in the directory `archive`.
 
 Do not open large (n>100 lines) tabular data files (e.g. *.csv) without permission. 
+
+If replace_in_file tool fails, ensure you use correct indentation and avoid long edits, try to do edits in multiple steps. 
+
+If search and replace does not work after 2 attempts, fall back to write_to_file or ask the user for help.
