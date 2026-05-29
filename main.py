@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import accuracy_score, roc_auc_score, precision_score
 import lightgbm as lgb
 from preprocessing import preprocess_f1_data
 from mlflow_utils import init_experiment, log_parameters, log_metrics, log_model, log_experiment_info, log_data_stats, log_model_info, log_all
@@ -114,7 +114,8 @@ def main():
     y_pred_proba_val = best_model.predict_proba(X_val)
     
     print("\n=== Final Validation Results ===")
-    print(f"Accuracy: {accuracy_score(y_val, y_pred_val):.4f}")
+    precision = precision_score(y_val, y_pred_val)
+    print(f"Precision: {precision:.4f}")
     print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
     
     # Log best model
@@ -138,7 +139,7 @@ def main():
         'random_state': best_params['seed'],
         'n_jobs': args.n_jobs
     }), {
-        "val_accuracy": accuracy_score(y_val, y_pred_val),
+        "val_precision": precision_score(y_val, y_pred_val),
         "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
     })
     

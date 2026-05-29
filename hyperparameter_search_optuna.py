@@ -12,7 +12,7 @@ import optuna
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.metrics import accuracy_score, roc_auc_score
+from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from preprocessing import preprocess_f1_data
 from mlflow_utils import init_experiment, log_all, log_model
@@ -133,7 +133,7 @@ def objective(
     y_pred_val = lgb_model.predict(X_val)
     y_pred_proba_val = lgb_model.predict_proba(X_val)
     
-    val_accuracy = accuracy_score(y_val, y_pred_val)
+    val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
     
     # Return negative AUC-ROC (Optuna minimizes)
@@ -189,24 +189,8 @@ def run_optuna_search(
     
     # Get best results
     best_trial = study.best_trial
-    best_params = {
-        'n_estimators': best_trial.params['n_estimators'],
-        'learning_rate': best_trial.params['learning_rate'],
-        'num_leaves': best_trial.params['num_leaves'],
-        'max_depth': best_trial.params['max_depth'],
-        'min_child_samples': best_trial.params['min_child_samples'],
-        'subsample': best_trial.params['subsample'],
-        'colsample_bytree': best_trial.params['colsample_bytree'],
-        'reg_alpha': best_trial.params['reg_alpha'],
-        'reg_lambda': best_trial.params['reg_lambda'],
-        'min_data_for_leaf': best_trial.params['min_data_for_leaf'],
-        'min_data_for_host': best_trial.params['min_data_for_host'],
-        'feature_fraction': best_trial.params['feature_fraction'],
-        'bagging_fraction': best_trial.params['bagging_fraction'],
-        'bagging_freq': best_trial.params['bagging_freq'],
-        'verbose': best_trial.params['verbose'],
-        'seed': best_trial.params['seed']
-    }
+    # Use the best trial parameters directly
+    best_params = best_trial.params
     best_score = -study.best_value  # Convert back to positive AUC-ROC
     
     # Get best model by retraining with best parameters
@@ -254,15 +238,15 @@ def run_optuna_search(
     # Evaluate on validation set
     y_pred_val = best_model.predict(X_val)
     y_pred_proba_val = best_model.predict_proba(X_val)
-    
-    val_accuracy = accuracy_score(y_val, y_pred_val)
+
+    val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
     
     # Log to MLflow
     print("\n=== Optuna Search Results ===")
     print(f"Best Parameters: {best_params}")
     print(f"Best CV Score (AUC-ROC): {best_score:.4f}")
-    print(f"Validation Accuracy: {val_accuracy:.4f}")
+    print(f"Validation Precision: {val_precision:.4f}")
     print(f"Validation AUC-ROC: {val_auc_roc:.4f}")
     
     # Log to MLflow
@@ -286,7 +270,7 @@ def run_optuna_search(
         'random_state': best_params.get('random_state', 42),
         'n_jobs': n_jobs
     }), {
-        "val_accuracy": val_accuracy,
+        "val_precision": val_precision,
         "val_auc_roc": val_auc_roc,
         "cv_auc_roc": best_score
     })
@@ -297,7 +281,7 @@ def run_optuna_search(
     return {
         'best_params': best_params,
         'best_score': best_score,
-        'val_accuracy': val_accuracy,
+        'val_precision': val_precision,
         'val_auc_roc': val_auc_roc,
         'best_model': best_model,
         'study': study
@@ -362,7 +346,7 @@ def main():
     print("\n=== Final Results ===")
     print(f"Best Parameters: {results['best_params']}")
     print(f"Best CV Score (AUC-ROC): {results['best_score']:.4f}")
-    print(f"Validation Accuracy: {results['val_accuracy']:.4f}")
+    print(f"Validation Precision: {results['val_precision']:.4f}")
     print(f"Validation AUC-ROC: {results['val_auc_roc']:.4f}")
     
     # Print all trial results
