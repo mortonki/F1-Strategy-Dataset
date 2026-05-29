@@ -366,9 +366,9 @@ def main():
     print(f"Validation AUC-ROC: {results['val_auc_roc']:.4f}")
     
     # Print all trial results
-    print("\n=== All Trial Results ===")
-    for i, trial in enumerate(results['study'].trials):
-        print(f"Trial {i+1}: {trial.value:.4f} (AUC-ROC: {-trial.value:.4f})")
+    #print("\n=== All Trial Results ===")
+    #for i, trial in enumerate(results['study'].trials):
+    #    print(f"Trial {i+1}: {trial.value:.4f} (AUC-ROC: {-trial.value:.4f})")
 
 
 if __name__ == "__main__":
