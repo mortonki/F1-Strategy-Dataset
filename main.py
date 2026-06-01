@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
-from sklearn.metrics import accuracy_score, roc_auc_score, precision_score
+from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from preprocessing import preprocess_f1_data
 from mlflow_utils import init_experiment, log_parameters, log_metrics, log_model, log_experiment_info, log_data_stats, log_model_info, log_all

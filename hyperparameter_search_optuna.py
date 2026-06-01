@@ -14,6 +14,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
+from catboost import CatBoostClassifier
 from preprocessing import preprocess_f1_data
 from mlflow_utils import init_experiment, log_all, log_model
 
@@ -57,6 +58,7 @@ def objective(
     study: optuna.Study,
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
+    model_type: str = 'lgbm',
     n_trials: int = 50,
     n_jobs: int = -1
 ):
@@ -67,30 +69,13 @@ def objective(
         study: Optuna study object
         train_df: Training data
         val_df: Validation data
+        model_type: Type of model to use ('lgbm' or 'catboost')
         n_trials: Number of trials
         n_jobs: Number of parallel jobs
     
     Returns:
         float: Negative AUC-ROC (to minimize)
     """
-    # Get hyperparameters from trial
-    n_estimators = study.suggest_int('n_estimators', low=100, high=1000)
-    learning_rate = study.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
-    num_leaves = study.suggest_int('num_leaves', low=10, high=100)
-    max_depth = study.suggest_int('max_depth', low=3, high=11)
-    min_child_samples = study.suggest_int('min_child_samples', low=10, high=100)
-    subsample = study.suggest_float('subsample', low=0.8, high=1.0)
-    colsample_bytree = study.suggest_float('colsample_bytree', low=0.8, high=1.0)
-    reg_alpha = study.suggest_float('reg_alpha', low=0.0, high=1.0)
-    reg_lambda = study.suggest_float('reg_lambda', low=0.0, high=1.0)
-    min_data_for_leaf = study.suggest_int('min_data_for_leaf', low=5, high=20)
-    min_data_for_host = study.suggest_int('min_data_for_host', low=1, high=4)
-    feature_fraction = study.suggest_float('feature_fraction', low=0.7, high=1.0)
-    bagging_fraction = study.suggest_float('bagging_fraction', low=0.7, high=1.0)
-    bagging_freq = study.suggest_int('bagging_freq', low=0, high=3)
-    verbose = study.suggest_int('verbose', low=-1, high=1)
-    seed = study.suggest_int('seed', low=42, high=123)
-    
     # Create imputer and encoder
     imputer = SimpleImputer(strategy='most_frequent')
     encoder = OrdinalEncoder()
@@ -100,48 +85,101 @@ def objective(
     
     # Preprocess validation data
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
-    
-    # Define LightGBM classifier
-    lgb_model = lgb.LGBMClassifier(
-        n_estimators=n_estimators,
-        learning_rate=learning_rate,
-        num_leaves=num_leaves,
-        max_depth=max_depth,
-        min_child_samples=min_child_samples,
-        subsample=subsample,
-        colsample_bytree=colsample_bytree,
-        reg_alpha=reg_alpha,
-        reg_lambda=reg_lambda,
-        min_data_for_leaf=min_data_for_leaf,
-        min_data_for_host=min_data_for_host,
-        feature_fraction=feature_fraction,
-        bagging_fraction=bagging_fraction,
-        bagging_freq=bagging_freq,
-        verbose=verbose,
-        n_jobs=n_jobs,
-        random_state=seed
-    )
-    
-    # Train model with early stopping
-    lgb_model.fit(
-        X_train, y_train,
-        eval_set=[(X_val, y_val)],  # Validation data for early stopping
-        callbacks=[lgb.early_stopping(stopping_rounds=50)], # Number of early stopping rounds
-    )
-    
+
+    if model_type == 'lgbm':
+        # Get hyperparameters from trial for LightGBM
+        n_estimators = study.suggest_int('n_estimators', low=100, high=1000)
+        learning_rate = study.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
+        num_leaves = study.suggest_int('num_leaves', low=10, high=100)
+        max_depth = study.suggest_int('max_depth', low=3, high=11)
+        min_child_samples = study.suggest_int('min_child_samples', low=10, high=100)
+        subsample = study.suggest_float('subsample', low=0.8, high=1.0)
+        colsample_bytree = study.suggest_float('colsample_bytree', low=0.8, high=1.0)
+        reg_alpha = study.suggest_float('reg_alpha', low=0.0, high=1.0)
+        reg_lambda = study.suggest_float('reg_lambda', low=0.0, high=1.0)
+        min_data_for_leaf = study.suggest_int('min_data_for_leaf', low=5, high=20)
+        min_data_for_host = study.suggest_int('min_data_for_host', low=1, high=4)
+        feature_fraction = study.suggest_float('feature_fraction', low=0.7, high=1.0)
+        bagging_fraction = study.suggest_float('bagging_fraction', low=0.7, high=1.0)
+        bagging_freq = study.suggest_int('bagging_freq', low=0, high=3)
+        verbose = study.suggest_int('verbose', low=-1, high=1)
+        seed = study.suggest_int('seed', low=42, high=123)
+
+        # Define LightGBM classifier
+        lgb_model = lgb.LGBMClassifier(
+            n_estimators=n_estimators,
+            learning_rate=learning_rate,
+            num_leaves=num_leaves,
+            max_depth=max_depth,
+            min_child_samples=min_child_samples,
+            subsample=subsample,
+            colsample_bytree=colsample_bytree,
+            reg_alpha=reg_alpha,
+            reg_lambda=reg_lambda,
+            min_data_for_leaf=min_data_for_leaf,
+            min_data_for_host=min_data_for_host,
+            feature_fraction=feature_fraction,
+            bagging_fraction=bagging_fraction,
+            bagging_freq=bagging_freq,
+            verbose=verbose,
+            n_jobs=n_jobs,
+            random_state=seed
+        )
+        
+        # Train model with early stopping
+        lgb_model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],  # Validation data for early stopping
+            callbacks=[lgb.early_stopping(stopping_rounds=50)], # Number of early stopping rounds
+        )
+        model = lgb_model
+
+    elif model_type == 'catboost':
+        # Get hyperparameters from trial for CatBoost
+        iterations = study.suggest_int('iterations', low=100, high=1000)
+        learning_rate = study.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
+        depth = study.suggest_int('depth', low=3, high=11)
+        l2_leaf_reg = study.suggest_float('l2_leaf_reg', low=1e-3, high=10.0, log=True)
+        random_seed = study.suggest_int('random_seed', low=42, high=123)
+        loss_function = study.suggest_categorical('loss_function', ['Logloss', 'AUC'])
+        
+        # Define CatBoost classifier
+
+        catboost_model = CatBoostClassifier(
+            iterations=iterations,
+            learning_rate=learning_rate,
+            depth=depth,
+            l2_leaf_reg=l2_leaf_reg,
+            random_seed=random_seed,
+            loss_function=loss_function,
+            verbose=0, # Suppress verbose output during tuning
+            random_state=random_seed
+        )
+        
+        # Train model
+        catboost_model.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)],
+            early_stopping_rounds=50,
+            verbose=0
+        )
+        model = catboost_model
+    else:
+        raise ValueError(f"Unsupported model_type: {model_type}. Must be 'lgbm' or 'catboost'.")
+
     # Evaluate on validation set
-    y_pred_val = lgb_model.predict(X_val)
-    y_pred_proba_val = lgb_model.predict_proba(X_val)
+    y_pred_val = model.predict(X_val)
+    y_pred_proba_val = model.predict_proba(X_val)[:, 1] # Ensure probability is used for AUC
     
     val_precision = precision_score(y_val, y_pred_val)
-    val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
+    val_auc_roc = roc_auc_score(y_val, y_pred_proba_val)
     
     # Return negative AUC-ROC (Optuna minimizes)
     return -val_auc_roc
 
-
 def run_optuna_search(
     df: pd.DataFrame,
+    model_type: str = 'lgbm',
     n_trials: int = 50,
     n_jobs: int = -1,
     pruner: str = 'tpg',
@@ -322,6 +360,13 @@ def main():
         help='Sampler - TPES (Tree-structured Parzen Estimator) or HBOpt (Hyperband)'
     )
     parser.add_argument(
+        '--model-type',
+        type=str,
+        default='lgbm',
+        choices=['lgbm', 'catboost'],
+        help='Type of model to use for hyperparameter search (lgbm or catboost)'
+    )
+    parser.add_argument(
         '--verbose',
         type=int,
         default=1,
@@ -336,6 +381,7 @@ def main():
     # Run search
     results = run_optuna_search(
         df,
+        model_type=args.model_type,
         n_trials=args.n_trials,
         n_jobs=args.n_jobs,
         pruner=args.pruner,
