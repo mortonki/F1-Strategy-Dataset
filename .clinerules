@@ -35,12 +35,12 @@ uv venv
 
 Do not read anything in the directory `archive`.
 
-Do not open large (n>100 lines) tabular data files (e.g. *.csv) without permission. 
+Do not read large (n>100 lines) tabular data files (e.g. *.csv) without permission. 
 
-Do not attempt to use replace_in_file in PLAN MODE. Ask to switch to ACT MODE if the tool is necessary.
+Do not attempt to use replace_in_file in PLAN MODE. Ask to switch to ACT MODE if use of the tool is necessary.
 
 If replace_in_file tool fails, ensure you use correct indentation and avoid long edits, try to do edits in multiple steps. 
 
 If search and replace does not work after 2 attempts, fall back to write_to_file or ask the user for help.
 
-Do not complete tasks until you have verified that edited code does not produce errors.
+Do not complete tasks until you have verified that the edited code does not produce errors.
