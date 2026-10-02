@@ -18,7 +18,7 @@ The script performs the following steps:
    to ``predictions.csv`` (or a user‑supplied output path).
 
 The script is intentionally lightweight and does not depend on any external
-configuration beyond the local MLflow tracking URI (``mlruns/``) and the
+configuration beyond the local MLflow tracking URI (``sqlite:///mlflow.db``) and the
 ``f1_strategy_dataset_v4.csv`` training file.
 """
 
@@ -34,7 +34,7 @@ import pandas as pd
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 
-from preprocessing import preprocess_f1_data
+from f1_strategy_dataset.preprocessing import preprocess_f1_data
 
 
 def _get_latest_run_id(experiment_name: str = "F1 Strategy Prediction") -> str:

@@ -18,7 +18,7 @@ logging.getLogger('mlflow.utils.environment').setLevel(logging.ERROR)
 
 
 # Global tracking URI for local file system
-TRACKING_URI = "mlruns/"
+TRACKING_URI = "sqlite:///mlflow.db"
 
 
 def init_experiment(experiment_name: str = "F1 Strategy Prediction") -> dict:

@@ -15,8 +15,8 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from catboost import CatBoostClassifier
-from preprocessing import preprocess_f1_data
-from mlflow_utils import init_experiment, log_all, log_model
+from f1_strategy_dataset.preprocessing import preprocess_f1_data
+from f1_strategy_dataset.mlflow_utils import init_experiment, log_all, log_model
 
 trial = optuna.trial.Trial
 

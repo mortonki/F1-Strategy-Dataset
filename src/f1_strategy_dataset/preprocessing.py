@@ -79,17 +79,22 @@ def preprocess_f1_data(
     dtype = pd.CategoricalDtype(categories=categories, ordered=True)
     df['Compound'] = df['Compound'].astype(dtype)
     
-    # Impute missing values in Compound column
+    # Impute missing values in Compound column. Convert the pandas Categorical to a
+    # 2D NumPy array before calling sklearn transformers.
+    compound_values = df['Compound'].astype(object).to_numpy().reshape(-1, 1)
     if is_training:
-        df['Compound'] = imputer.fit_transform(df['Compound'].values.reshape(-1, 1)).flatten()
+        compound_imputed = np.asarray(imputer.fit_transform(compound_values))
     else:
-        df['Compound'] = imputer.transform(df['Compound'].values.reshape(-1, 1)).flatten()
-    
+        compound_imputed = np.asarray(imputer.transform(compound_values))
+    df['Compound'] = compound_imputed[:, 0]
+
     # Encode Compound column with OrdinalEncoder
+    compound_encoded = df['Compound'].astype(str).to_numpy().reshape(-1, 1)
     if is_training:
-        df['Compound_encoded'] = encoder.fit_transform(df['Compound'].to_numpy().reshape(-1, 1)).flatten()
+        compound_encoded_array = np.asarray(encoder.fit_transform(compound_encoded))
     else:
-        df['Compound_encoded'] = encoder.transform(df['Compound'].to_numpy().reshape(-1, 1)).flatten()
+        compound_encoded_array = np.asarray(encoder.transform(compound_encoded))
+    df['Compound_encoded'] = compound_encoded_array[:, 0]
     
     # Drop the original Compound column
     df.drop('Compound', axis=1, inplace=True)
