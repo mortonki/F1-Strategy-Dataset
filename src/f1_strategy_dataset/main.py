@@ -53,7 +53,7 @@ def main():
     args = parser.parse_args()
     
     # Load the F1 Strategy Dataset
-    df = pd.read_csv('f1_strategy_dataset_v4.csv')
+    df = pd.read_csv('data/f1_strategy_dataset_v4.csv')
     
     # Time-series aware train/test split
     train_df = df[df['Year'].isin([2022, 2023])].copy()
