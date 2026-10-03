@@ -59,13 +59,15 @@ def log_parameters(args: argparse.Namespace, run_id: str = None) -> None:
             mlflow.log_param("learning_rate", args.learning_rate)
             mlflow.log_param("num_leaves", args.num_leaves)
             mlflow.log_param("random_state", args.random_state)
-            mlflow.log_param("n_jobs", args.n_jobs)
+            if args.n_jobs is not None:
+                mlflow.log_param("n_jobs", str(args.n_jobs))
     else:
         mlflow.log_param("n_estimators", args.n_estimators)
         mlflow.log_param("learning_rate", args.learning_rate)
         mlflow.log_param("num_leaves", args.num_leaves)
         mlflow.log_param("random_state", args.random_state)
-        mlflow.log_param("n_jobs", args.n_jobs)
+        if args.n_jobs is not None:
+            mlflow.log_param("n_jobs", str(args.n_jobs))
 
 
 def log_metrics(metrics_dict: dict, run_id: str = None) -> None:
@@ -97,13 +99,13 @@ def log_experiment_info(experiment_info: dict, run_id: str = None) -> None:
         with mlflow.start_run():
             mlflow.log_param("experiment_name", experiment_info.get("name", "Unknown"))
             mlflow.log_param("experiment_id", experiment_info.get("experiment_id", "Unknown"))
-            mlflow.log_param("creation_time", experiment_info.get("creation_time", 0))
+            mlflow.log_param("creation_time", str(experiment_info.get("creation_time", 0)))
             mlflow.log_param("lifecycle_stage", experiment_info.get("lifecycle_stage", "Unknown"))
             mlflow.log_param("artifact_uri", experiment_info.get("artifact_uri", "Unknown"))
     else:
         mlflow.log_param("experiment_name", experiment_info.get("name", "Unknown"))
         mlflow.log_param("experiment_id", experiment_info.get("experiment_id", "Unknown"))
-        mlflow.log_param("creation_time", experiment_info.get("creation_time", 0))
+        mlflow.log_param("creation_time", str(experiment_info.get("creation_time", 0)))
         mlflow.log_param("lifecycle_stage", experiment_info.get("lifecycle_stage", "Unknown"))
         mlflow.log_param("artifact_uri", experiment_info.get("artifact_uri", "Unknown"))
 
@@ -185,8 +187,8 @@ def log_model_info(model, X_train, y_train, run_id: str = None) -> None:
                 mlflow.log_param("num_leaves", model.num_leaves)
             if hasattr(model, "random_state"):
                 mlflow.log_param("random_state", model.random_state)
-            if hasattr(model, "n_jobs"):
-                mlflow.log_param("n_jobs", model.n_jobs)
+            if hasattr(model, "n_jobs") and model.n_jobs is not None:
+                mlflow.log_param("n_jobs", str(model.n_jobs))
     else:
         # Model info
         mlflow.log_param("model_type", type(model).__name__)
@@ -202,24 +204,24 @@ def log_model_info(model, X_train, y_train, run_id: str = None) -> None:
             mlflow.log_param("num_leaves", model.num_leaves)
         if hasattr(model, "random_state"):
             mlflow.log_param("random_state", model.random_state)
-        if hasattr(model, "n_jobs"):
-            mlflow.log_param("n_jobs", model.n_jobs)
+        if hasattr(model, "n_jobs") and model.n_jobs is not None:
+            mlflow.log_param("n_jobs", str(model.n_jobs))
 
 
-def log_model(model, artifact_path: str = "model", run_id: str = None) -> None:
+def log_model(model, name: str = "model", run_id: str = None) -> None:
     """
     Log the trained model as an MLflow artifact.
     
     Args:
         model: Trained sklearn-compatible model
-        artifact_path: Path within the run to store the model
+        name: Name within the run to store the model
         run_id: Optional run ID to log to. If None, starts a new run.
     """
     if run_id is None:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(model, artifact_path)
+            mlflow.sklearn.log_model(model, name=name)
     else:
-        mlflow.sklearn.log_model(model, artifact_path)
+        mlflow.sklearn.log_model(model, name=name)
 
 
 def log_all(model, args, metrics_dict: dict, run_id: str = None) -> None:
@@ -243,9 +245,10 @@ def log_all(model, args, metrics_dict: dict, run_id: str = None) -> None:
                 "n_jobs": args.n_jobs
             }
             for key, value in hyperparameters.items():
-                mlflow.log_param(key, value)
+                if value is not None:
+                    mlflow.log_param(key, str(value))
             mlflow.log_metrics(metrics_dict)
-            mlflow.sklearn.log_model(model, artifact_path="model")
+            mlflow.sklearn.log_model(model, name="model")
     else:
         # Log only actual hyperparameters, not all namespace attributes
         hyperparameters = {
@@ -256,6 +259,7 @@ def log_all(model, args, metrics_dict: dict, run_id: str = None) -> None:
             "n_jobs": args.n_jobs
         }
         for key, value in hyperparameters.items():
-            mlflow.log_param(key, value)
+            if value is not None:
+                mlflow.log_param(key, str(value))
         mlflow.log_metrics(metrics_dict)
-        mlflow.sklearn.log_model(model, artifact_path="model")
+        mlflow.sklearn.log_model(model, name="model")

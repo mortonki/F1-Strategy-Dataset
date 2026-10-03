@@ -110,7 +110,7 @@ def main():
     best_model.fit(X_train, y_train)
     
     # Evaluate on validation set
-    y_pred_val = best_model.predict(X_val)
+    y_pred_val = np.array(best_model.predict(X_val))
     y_pred_proba_val = best_model.predict_proba(X_val)
     
     print("\n=== Final Validation Results ===")
@@ -144,7 +144,7 @@ def main():
     })
     
     # Save best model
-    log_model(best_model, artifact_path="best_model")
+    log_model(best_model, name="best_model")
 
 
 if __name__ == "__main__":

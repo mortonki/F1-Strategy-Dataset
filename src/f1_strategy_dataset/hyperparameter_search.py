@@ -142,7 +142,7 @@ def run_random_search(
     })
     
     # Save best model
-    log_model(best_model, artifact_path="best_model")
+    log_model(best_model, name="best_model")
     
     return {
         'best_params': best_params,
