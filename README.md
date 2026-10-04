@@ -46,7 +46,7 @@ The project follows a modular design to ensure maintainability and reusability:
 ### Running the Pipeline
 To run the full training and optimization pipeline:
 ```bash
-uv run f1_strategy_dataset
+uv run f1-strategy-dataset
 ```
 
 ## Methodology

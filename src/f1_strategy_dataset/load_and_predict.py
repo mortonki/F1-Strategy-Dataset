@@ -31,6 +31,10 @@ from pathlib import Path
 import mlflow
 import mlflow.sklearn
 import pandas as pd
+from f1_strategy_dataset.mlflow_utils import TRACKING_URI
+
+mlflow.set_tracking_uri(TRACKING_URI)
+
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 

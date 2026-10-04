@@ -22,3 +22,9 @@ catboost_info/
 
 # Data files
 data/
+
+# Environment files
+.env
+
+# VS Code settings
+.vscode/
