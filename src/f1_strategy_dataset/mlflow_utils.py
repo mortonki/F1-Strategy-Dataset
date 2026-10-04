@@ -6,7 +6,7 @@ including parameter logging, metric logging, and model logging.
 """
 
 import mlflow
-from mlflow.sklearn import log_model
+from mlflow import sklearn
 import argparse
 import pandas as pd
 import numpy as np
@@ -218,11 +218,13 @@ def log_model(model, name: str = "model", run_id: str | None = None) -> None:
         name: Name within the run to store the model
         run_id: Optional run ID to log to. If None, starts a new run.
     """
-    if run_id is None:
-        with mlflow.start_run():
-            log_model(model, name=name)
+    if run_id is not None:
+        sklearn.log_model(model, name=name)
+    elif mlflow.active_run() is not None:
+        sklearn.log_model(model, name=name)
     else:
-        log_model(model, name=name)
+        with mlflow.start_run():
+            sklearn.log_model(model, name=name)
 
 
 def log_all(model, args, metrics_dict: dict, run_id: str | None = None) -> None:

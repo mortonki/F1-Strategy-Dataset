@@ -29,7 +29,7 @@ import os
 from pathlib import Path
 
 import mlflow
-import mlflow.sklearn
+from mlflow import sklearn
 import pandas as pd
 from f1_strategy_dataset.mlflow_utils import TRACKING_URI
 
@@ -66,7 +66,7 @@ def load_model(run_id: str) -> mlflow.sklearn.SklearnModel:
 
     The artifact path used during training is ``best_model``.
     """
-    return mlflow.sklearn.load_model(f"runs:/{run_id}/best_model")
+    return sklearn.load_model(f"runs:/{run_id}/best_model")
 
 
 def prepare_preprocessors(train_df: pd.DataFrame) -> tuple[SimpleImputer, OrdinalEncoder]:
