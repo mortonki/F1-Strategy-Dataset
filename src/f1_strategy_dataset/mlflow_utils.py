@@ -6,7 +6,7 @@ including parameter logging, metric logging, and model logging.
 """
 
 import mlflow
-import mlflow.sklearn
+from mlflow.sklearn import log_model
 import argparse
 import pandas as pd
 import numpy as np
@@ -220,9 +220,9 @@ def log_model(model, name: str = "model", run_id: str | None = None) -> None:
     """
     if run_id is None:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(model, name=name)
+            log_model(model, name=name)
     else:
-        mlflow.sklearn.log_model(model, name=name)
+        log_model(model, name=name)
 
 
 def log_all(model, args, metrics_dict: dict, run_id: str | None = None) -> None:
@@ -249,9 +249,8 @@ def log_all(model, args, metrics_dict: dict, run_id: str | None = None) -> None:
                 if value is not None:
                     mlflow.log_param(key, str(value))
             mlflow.log_metrics(metrics_dict)
-            mlflow.sklearn.log_model(model, name="model")
+            log_model(model, name="model")
     else:
-        # Log only actual hyperparameters, not all namespace attributes
         hyperparameters = {
             "n_estimators": args.n_estimators,
             "learning_rate": args.learning_rate,
@@ -263,4 +262,4 @@ def log_all(model, args, metrics_dict: dict, run_id: str | None = None) -> None:
             if value is not None:
                 mlflow.log_param(key, str(value))
         mlflow.log_metrics(metrics_dict)
-        mlflow.sklearn.log_model(model, name="model")
+        log_model(model, name="model")
