@@ -46,7 +46,7 @@ def init_experiment(experiment_name: str = "F1 Strategy Prediction") -> dict:
     }
 
 
-def log_parameters(args: argparse.Namespace, run_id: str = None) -> None:
+def log_parameters(args: argparse.Namespace, run_id: str | None = None) -> None:
     """
     Log hyperparameters as MLflow parameters.
     
@@ -71,7 +71,7 @@ def log_parameters(args: argparse.Namespace, run_id: str = None) -> None:
             mlflow.log_param("n_jobs", str(args.n_jobs))
 
 
-def log_metrics(metrics_dict: dict, run_id: str = None) -> None:
+def log_metrics(metrics_dict: dict, run_id: str | None = None) -> None:
     """
     Log metrics as MLflow metrics.
     
@@ -88,7 +88,7 @@ def log_metrics(metrics_dict: dict, run_id: str = None) -> None:
             mlflow.log_metric(metric_name, metric_value)
 
 
-def log_experiment_info(experiment_info: dict, run_id: str = None) -> None:
+def log_experiment_info(experiment_info: dict, run_id: str | None = None) -> None:
     """
     Log experiment metadata as MLflow parameters.
     
@@ -111,7 +111,7 @@ def log_experiment_info(experiment_info: dict, run_id: str = None) -> None:
         mlflow.log_param("artifact_uri", experiment_info.get("artifact_uri", "Unknown"))
 
 
-def log_data_stats(df: pd.DataFrame, X: np.ndarray, y: np.ndarray, run_id: str = None) -> None:
+def log_data_stats(df: pd.DataFrame, X: np.ndarray, y: np.ndarray, run_id: str | None = None) -> None:
     """
     Log dataset statistics as MLflow parameters and metrics.
     
@@ -162,7 +162,7 @@ def log_data_stats(df: pd.DataFrame, X: np.ndarray, y: np.ndarray, run_id: str =
         mlflow.log_params({"feature_names": feature_names})
 
 
-def log_model_info(model, X_train, y_train, run_id: str = None) -> None:
+def log_model_info(model, X_train, y_train, run_id: str | None = None) -> None:
     """
     Log model configuration and training info as MLflow parameters.
     
@@ -209,7 +209,7 @@ def log_model_info(model, X_train, y_train, run_id: str = None) -> None:
             mlflow.log_param("n_jobs", str(model.n_jobs))
 
 
-def log_model(model, name: str = "model", run_id: str = None) -> None:
+def log_model(model, name: str = "model", run_id: str | None = None) -> None:
     """
     Log the trained model as an MLflow artifact.
     
@@ -225,7 +225,7 @@ def log_model(model, name: str = "model", run_id: str = None) -> None:
         mlflow.sklearn.log_model(model, name=name)
 
 
-def log_all(model, args, metrics_dict: dict, run_id: str = None) -> None:
+def log_all(model, args, metrics_dict: dict, run_id: str | None = None) -> None:
     """
     Log parameters, metrics, and model in a single operation.
     
