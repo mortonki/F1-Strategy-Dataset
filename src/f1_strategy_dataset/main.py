@@ -112,7 +112,12 @@ def main():
     # Evaluate on validation set
     y_pred_val = np.array(best_model.predict(X_val))
     y_pred_proba_val = best_model.predict_proba(X_val)
-    
+    toarray = getattr(y_pred_proba_val, 'toarray', None)
+    if callable(toarray):
+        y_pred_proba_val = np.asarray(toarray())
+    else:
+        y_pred_proba_val = np.asarray(y_pred_proba_val)
+
     print("\n=== Final Validation Results ===")
     precision = precision_score(y_val, y_pred_val)
     print(f"Precision: {precision:.4f}")
