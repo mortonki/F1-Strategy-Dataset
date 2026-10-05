@@ -59,7 +59,10 @@ def _get_latest_run_id(experiment_name: str = "F1 Strategy Prediction") -> str:
     runs = mlflow.search_runs(experiment_ids=[experiment_id])
     if len(runs) == 0:
         raise RuntimeError(f"No runs found in experiment '{experiment_name}'.")
-    latest_run = runs.sort_values("start_time", ascending=False).iloc[0]
+    
+    # Ensure runs is a DataFrame to support sort_values and satisfy type checkers
+    df_runs = pd.DataFrame(runs)
+    latest_run = df_runs.sort_values("start_time", ascending=False).iloc[0]
     return latest_run["run_id"]
 
 
