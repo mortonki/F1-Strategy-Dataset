@@ -288,7 +288,7 @@ def run_optuna_search(
     print(f"Validation AUC-ROC: {val_auc_roc:.4f}")
     
     # Log to MLflow
-    log_all(best_model, type('Args', (), {
+    log_all(best_model, {
         'n_estimators': best_params.get('n_estimators', 100),
         'learning_rate': best_params.get('learning_rate', 0.05),
         'num_leaves': best_params.get('num_leaves', 31),
@@ -307,7 +307,7 @@ def run_optuna_search(
         'seed': best_params.get('seed', 42),
         'random_state': best_params.get('random_state', 42),
         'n_jobs': n_jobs
-    }), {
+    }, {
         "val_precision": val_precision,
         "val_auc_roc": val_auc_roc,
         "cv_auc_roc": best_score
@@ -376,7 +376,7 @@ def main():
     args = parser.parse_args()
     
     # Load dataset
-    df = pd.read_csv('f1_strategy_dataset_v4.csv')
+    df = pd.read_csv('data/f1_strategy_dataset_v4.csv')
     
     # Run search
     results = run_optuna_search(

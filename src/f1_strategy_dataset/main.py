@@ -1,3 +1,5 @@
+import mlflow
+
 import argparse
 import pandas as pd
 import numpy as np
@@ -124,32 +126,11 @@ def main():
     print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
     
     # Log best model
-    log_all(best_model, type('Args', (), {
-        'n_estimators': best_params['n_estimators'],
-        'learning_rate': best_params['learning_rate'],
-        'num_leaves': best_params['num_leaves'],
-        'max_depth': best_params['max_depth'],
-        'min_child_samples': best_params['min_child_samples'],
-        'subsample': best_params['subsample'],
-        'colsample_bytree': best_params['colsample_bytree'],
-        'reg_alpha': best_params['reg_alpha'],
-        'reg_lambda': best_params['reg_lambda'],
-        'min_data_for_leaf': best_params['min_data_for_leaf'],
-        'min_data_for_host': best_params['min_data_for_host'],
-        'feature_fraction': best_params['feature_fraction'],
-        'bagging_fraction': best_params['bagging_fraction'],
-        'bagging_freq': best_params['bagging_freq'],
-        'verbose': best_params['verbose'],
-        'seed': best_params['seed'],
-        'random_state': best_params['seed'],
-        'n_jobs': args.n_jobs
-    }), {
-        "val_precision": precision_score(y_val, y_pred_val),
-        "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
-    })
-    
-    # Save best model
-    log_model(best_model, name="best_model")
+    with mlflow.start_run():
+        log_all(best_model, best_params, {
+            "val_precision": precision_score(y_val, y_pred_val),
+            "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+        })
 
 
 if __name__ == "__main__":
