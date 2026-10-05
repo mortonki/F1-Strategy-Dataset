@@ -23,6 +23,8 @@ configuration beyond the local MLflow tracking URI (``sqlite:///mlflow.db``) and
 """
 
 from __future__ import annotations
+from typing import Any
+
 
 import argparse
 import os
@@ -55,13 +57,13 @@ def _get_latest_run_id(experiment_name: str = "F1 Strategy Prediction") -> str:
         raise RuntimeError(f"Experiment '{experiment_name}' not found.")
     experiment_id = experiment.experiment_id
     runs = mlflow.search_runs(experiment_ids=[experiment_id])
-    if runs.empty:
+    if len(runs) == 0:
         raise RuntimeError(f"No runs found in experiment '{experiment_name}'.")
     latest_run = runs.sort_values("start_time", ascending=False).iloc[0]
     return latest_run["run_id"]
 
 
-def load_model(run_id: str) -> mlflow.sklearn.SklearnModel:
+def load_model(run_id: str) -> Any:
     """Load the best model from the specified MLflow run.
 
     The artifact path used during training is ``best_model``.
