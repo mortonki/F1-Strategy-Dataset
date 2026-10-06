@@ -325,9 +325,9 @@ def run_optuna_search(
         'n_jobs': n_jobs
     })
     mlflow.log_metrics({
-        'val_precision': val_precision,
-        'val_auc_roc': val_auc_roc,
-        'cv_auc_roc': best_score
+        'val_precision': float(val_precision),
+        'val_auc_roc': float(val_auc_roc),
+        'cv_auc_roc': float(best_score)
     })
     
     # Save best model as "model"

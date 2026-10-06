@@ -25,10 +25,10 @@ Predicting when a driver will pit is crucial for understanding race dynamics. Si
 
 ## Project Structure
 The project follows a modular design to ensure maintainability and reusability:
-- `src/<project_name>/preprocessing.py`: Data cleaning, feature engineering (lags, rolling windows), and encoding.
-- `src/<project_name>/hyperparameter_search_optuna.py`: Manages the Optuna study and objective functions.
-- `src/<project_name>/mlflow_utils.py`: Centralizes MLflow logging logic.
-- `src/<project_name>/main.py`: Orchestrates the entire pipeline from preprocessing to training and evaluation.
+- `src/f1-strategy-dataset/preprocessing.py`: Data cleaning, feature engineering (lags, rolling windows), and encoding.
+- `src/f1-strategy-dataset/hyperparameter_search_optuna.py`: Manages the Optuna study and objective functions.
+- `src/f1-strategy-dataset/mlflow_utils.py`: Centralizes MLflow logging logic.
+- `src/f1-strategy-dataset/main.py`: Orchestrates the entire pipeline from preprocessing to training and evaluation.
 
 ## Getting Started
 
