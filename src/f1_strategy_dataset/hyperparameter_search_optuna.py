@@ -182,9 +182,9 @@ def objective(
         raise ValueError(f"Unsupported model_type: {model_type}. Must be 'lgbm' or 'catboost'.")
 
     # Evaluate on validation set
-    y_pred_val = model.predict(X_val)
-    probs = model.predict_proba(X_val)
-    y_pred_proba_val = probs.toarray()[:, 1] if hasattr(probs, 'toarray') else probs[:, 1]
+    y_pred_val = np.asarray(model.predict(X_val))
+    probs = np.asarray(model.predict_proba(X_val))
+    y_pred_proba_val = probs[:, 1] if hasattr(probs, 'toarray') else probs[:, 1]
     
     val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val)
@@ -289,9 +289,9 @@ def run_optuna_search(
     best_model = lgb_model
     
     # Evaluate on validation set
-    y_pred_val = best_model.predict(X_val)
+    y_pred_val = np.asarray(best_model.predict(X_val))
     probs = best_model.predict_proba(X_val)
-    y_pred_proba_val = probs.toarray() if hasattr(probs, 'toarray') else probs
+    y_pred_proba_val = np.asarray(probs) if hasattr(probs, 'toarray') else np.asarray(probs)
 
     val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
