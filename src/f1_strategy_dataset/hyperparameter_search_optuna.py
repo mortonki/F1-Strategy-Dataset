@@ -328,11 +328,13 @@ def run_optuna_search(
         'cv_auc_roc': best_score
     })
     
-    # Save model as "model"
-    sklearn.log_model(best_model, artifact_path="model")
-    
+    # Save best model as "model"
+    with mlflow.start_run(nested=True):
+        sklearn.log_model(best_model, artifact_path="model")
+        
     # Save best model as "best_model"
-    sklearn.log_model(best_model, artifact_path="best_model")
+    with mlflow.start_run(nested=True):
+        sklearn.log_model(best_model, artifact_path="best_model")
     
     return {
         'best_params': best_params,

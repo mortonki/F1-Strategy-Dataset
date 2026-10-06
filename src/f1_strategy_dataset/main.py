@@ -126,7 +126,7 @@ def main():
     print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
     
     # Log best model
-    with mlflow.start_run():
+    with mlflow.start_run(nested=True):
         # Log parameters
         for key, value in best_params.items():
             if value is not None:
