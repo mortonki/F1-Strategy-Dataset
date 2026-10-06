@@ -1,4 +1,5 @@
 import mlflow
+from mlflow import sklearn
 
 import argparse
 import pandas as pd
@@ -9,7 +10,6 @@ from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
-from f1_strategy_dataset.mlflow_utils import init_experiment, log_parameters, log_metrics, log_model, log_experiment_info, log_data_stats, log_model_info, log_all
 from f1_strategy_dataset.hyperparameter_search_optuna import run_optuna_search
 
 
@@ -127,10 +127,20 @@ def main():
     
     # Log best model
     with mlflow.start_run():
-        log_all(best_model, best_params, {
+        # Log parameters
+        for key, value in best_params.items():
+            if value is not None:
+                mlflow.log_param(key, str(value))
+        
+        # Log metrics
+        metrics = {
             "val_precision": precision_score(y_val, y_pred_val),
             "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
-        })
+        }
+        mlflow.log_metrics(metrics)
+        
+        # Log model
+        sklearn.log_model(best_model, name="model")
 
 
 if __name__ == "__main__":
