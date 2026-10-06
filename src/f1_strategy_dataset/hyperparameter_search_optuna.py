@@ -183,7 +183,8 @@ def objective(
 
     # Evaluate on validation set
     y_pred_val = model.predict(X_val)
-    y_pred_proba_val = model.predict_proba(X_val)[:, 1] # Ensure probability is used for AUC
+    probs = model.predict_proba(X_val)
+    y_pred_proba_val = probs.toarray()[:, 1] if hasattr(probs, 'toarray') else probs[:, 1]
     
     val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val)
@@ -289,7 +290,8 @@ def run_optuna_search(
     
     # Evaluate on validation set
     y_pred_val = best_model.predict(X_val)
-    y_pred_proba_val = best_model.predict_proba(X_val)
+    probs = best_model.predict_proba(X_val)
+    y_pred_proba_val = probs.toarray() if hasattr(probs, 'toarray') else probs
 
     val_precision = precision_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
