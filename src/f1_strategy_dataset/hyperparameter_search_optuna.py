@@ -190,7 +190,7 @@ def objective(
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val)
     
     # Return negative AUC-ROC (Optuna minimizes)
-    return -val_auc_roc
+    return float(-val_auc_roc)
 
 def run_optuna_search(
     df: pd.DataFrame,
