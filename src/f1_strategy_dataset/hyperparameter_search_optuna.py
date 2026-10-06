@@ -69,7 +69,7 @@ def create_optuna_study(
 
 
 def objective(
-    study: optuna.Study,
+    trial: optuna.trial.Trial,
     train_df: pd.DataFrame,
     val_df: pd.DataFrame,
     model_type: str = 'lgbm',
@@ -80,7 +80,7 @@ def objective(
     Optuna objective function for hyperparameter tuning.
     
     Args:
-        study: Optuna study object
+        trial: Optuna trial object
         train_df: Training data
         val_df: Validation data
         model_type: Type of model to use ('lgbm' or 'catboost')
@@ -102,22 +102,22 @@ def objective(
 
     if model_type == 'lgbm':
         # Get hyperparameters from trial for LightGBM
-        n_estimators = study.suggest_int('n_estimators', low=100, high=1000)
-        learning_rate = study.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
-        num_leaves = study.suggest_int('num_leaves', low=10, high=100)
-        max_depth = study.suggest_int('max_depth', low=3, high=11)
-        min_child_samples = study.suggest_int('min_child_samples', low=10, high=100)
-        subsample = study.suggest_float('subsample', low=0.8, high=1.0)
-        colsample_bytree = study.suggest_float('colsample_bytree', low=0.8, high=1.0)
-        reg_alpha = study.suggest_float('reg_alpha', low=0.0, high=1.0)
-        reg_lambda = study.suggest_float('reg_lambda', low=0.0, high=1.0)
-        min_data_for_leaf = study.suggest_int('min_data_for_leaf', low=5, high=20)
-        min_data_for_host = study.suggest_int('min_data_for_host', low=1, high=4)
-        feature_fraction = study.suggest_float('feature_fraction', low=0.7, high=1.0)
-        bagging_fraction = study.suggest_float('bagging_fraction', low=0.7, high=1.0)
-        bagging_freq = study.suggest_int('bagging_freq', low=0, high=3)
-        verbose = study.suggest_int('verbose', low=-1, high=1)
-        seed = study.suggest_int('seed', low=42, high=123)
+        n_estimators = trial.suggest_int('n_estimators', low=100, high=1000)
+        learning_rate = trial.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
+        num_leaves = trial.suggest_int('num_leaves', low=10, high=100)
+        max_depth = trial.suggest_int('max_depth', low=3, high=11)
+        min_child_samples = trial.suggest_int('min_child_samples', low=10, high=100)
+        subsample = trial.suggest_float('subsample', low=0.8, high=1.0)
+        colsample_bytree = trial.suggest_float('colsample_bytree', low=0.8, high=1.0)
+        reg_alpha = trial.suggest_float('reg_alpha', low=0.0, high=1.0)
+        reg_lambda = trial.suggest_float('reg_lambda', low=0.0, high=1.0)
+        min_data_for_leaf = trial.suggest_int('min_data_for_leaf', low=5, high=20)
+        min_data_for_host = trial.suggest_int('min_data_for_host', low=1, high=4)
+        feature_fraction = trial.suggest_float('feature_fraction', low=0.7, high=1.0)
+        bagging_fraction = trial.suggest_float('bagging_fraction', low=0.7, high=1.0)
+        bagging_freq = trial.suggest_int('bagging_freq', low=0, high=3)
+        verbose = trial.suggest_int('verbose', low=-1, high=1)
+        seed = trial.suggest_int('seed', low=42, high=123)
 
         # Define LightGBM classifier
         lgb_model = lgb.LGBMClassifier(
@@ -150,12 +150,12 @@ def objective(
 
     elif model_type == 'catboost':
         # Get hyperparameters from trial for CatBoost
-        iterations = study.suggest_int('iterations', low=100, high=1000)
-        learning_rate = study.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
-        depth = study.suggest_int('depth', low=3, high=11)
-        l2_leaf_reg = study.suggest_float('l2_leaf_reg', low=1e-3, high=10.0, log=True)
-        random_seed = study.suggest_int('random_seed', low=42, high=123)
-        loss_function = study.suggest_categorical('loss_function', ['Logloss', 'AUC'])
+        iterations = trial.suggest_int('iterations', low=100, high=1000)
+        learning_rate = trial.suggest_float('learning_rate', low=0.01, high=0.2, log=True)
+        depth = trial.suggest_int('depth', low=3, high=11)
+        l2_leaf_reg = trial.suggest_float('l2_leaf_reg', low=1e-3, high=10.0, log=True)
+        random_seed = trial.suggest_int('random_seed', low=42, high=123)
+        loss_function = trial.suggest_categorical('loss_function', ['Logloss', 'AUC'])
         
         # Define CatBoost classifier
 
@@ -234,7 +234,7 @@ def run_optuna_search(
     # Run optimization
     print(f"\nStarting Optuna Search ({n_trials} trials)...")
     study.optimize(
-        lambda study: objective(study, train_df, val_df, n_trials=n_trials, n_jobs=n_jobs),
+        lambda trial: objective(trial, train_df, val_df, n_trials=n_trials, n_jobs=n_jobs),
         n_trials=n_trials,
         show_progress_bar=verbose > 0
     )
