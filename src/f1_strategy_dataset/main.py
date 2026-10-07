@@ -1,10 +1,11 @@
 import mlflow
 from mlflow import sklearn
-
 import argparse
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
+import json
+import yaml
+import os
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import roc_auc_score, precision_score
@@ -12,82 +13,55 @@ import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
 from f1_strategy_dataset.hyperparameter_search_optuna import run_optuna_search
 
+def load_config(config_path):
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
 
-def main():
-    # Parse command-line arguments for hyperparameter tuning
-    parser = argparse.ArgumentParser(
-        description='F1 Strategy Prediction using LightGBM',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    
-    parser.add_argument(
-        '--search',
-        type=str,
-        default='train',
-        choices=['train', 'random'],
-        help='Mode: train (single model), random (random search)'
-    )
-    parser.add_argument(
-        '--learning_rate',
-        type=float,
-        default=0.05,
-        help='Learning rate (step-down factor) for the model'
-    )
-    parser.add_argument(
-        '--num_leaves',
-        type=int,
-        default=31,
-        help='Maximum number of leaves in each tree'
-    )
-    parser.add_argument(
-        '--random_state',
-        type=int,
-        default=42,
-        help='Random seed for reproducibility'
-    )
-    parser.add_argument(
-        '--n_jobs',
-        type=int,
-        default=-1,
-        help='Number of parallel jobs (-1 for all available CPUs)'
-    )
-    
-    args = parser.parse_args()
-    
-    # Load the F1 Strategy Dataset
-    df = pd.read_csv('data/f1_strategy_dataset_v4.csv')
-    
+def save_best_params(params, path):
+    with open(path, 'w') as f:
+        json.dump(params, f, indent=4)
+
+def load_best_params(path):
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            return json.load(f)
+    return None
+
+def load_data(data_path):
+    df = pd.read_csv(data_path)
     # Time-series aware train/test split
     train_df = df[df['Year'].isin([2022, 2023])].copy()
     val_df = df[df['Year'] == 2024].copy()
     test_df = df[df['Year'] == 2025].copy()
-    
-    print(f"Total rows: {len(df)}")
-    print(f"Train size: {len(train_df)} ({len(train_df)/len(df):.2%})")
-    print(f"Val size: {len(val_df)} ({len(val_df)/len(df):.2%})")
-    print(f"Test size: {len(test_df)} ({len(test_df)/len(df):.2%})")
-    
-    # Create imputer and encoder
+    return df, train_df, val_df, test_df
+
+def prepare_data(train_df, val_df):
     imputer = SimpleImputer(strategy='most_frequent')
     encoder = OrdinalEncoder()
     
-    # Preprocess training data
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
-    
-    # Preprocess validation data
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
     
-    # Preprocess test data
-    #X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
-    
-    # Run Optuna search for optimal hyperparameters
+    return X_train, y_train, X_val, y_val, imputer, encoder
+
+def run_tuning(train_df, val_df, config):
     print("\n=== Running Optuna Search ===")
-    results = run_optuna_search(df, n_trials=50, n_jobs=args.n_jobs, verbose=1)
+    # Pass both train_df and val_df to allow the tuner to handle internal splits correctly
+    results = run_optuna_search(
+        train_df, 
+        val_df,
+        n_trials=config['OPTUNA_TRIALS'], 
+        n_jobs=config['DEFAULT_PARAMS']['n_jobs'], 
+        verbose=1
+    )
     
-    # Get best model by retraining with best parameters
     best_params = results['best_params']
-    
-    # Define LightGBM classifier
+    save_best_params(best_params, config['PARAMS_PATH'])
+    print(f"Best parameters saved to {config['PARAMS_PATH']}")
+    return best_params
+
+def train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config):
+    print("\n=== Training Final Model ===")
     best_model = lgb.LGBMClassifier(
         n_estimators=best_params['n_estimators'],
         learning_rate=best_params['learning_rate'],
@@ -105,13 +79,11 @@ def main():
         bagging_freq=best_params['bagging_freq'],
         verbose=best_params['verbose'],
         random_state=best_params['seed'],
-        n_jobs=args.n_jobs
+        n_jobs=config['DEFAULT_PARAMS']['n_jobs']
     )
     
-    # Train final model with best parameters
     best_model.fit(X_train, y_train)
     
-    # Evaluate on validation set
     y_pred_val = np.array(best_model.predict(X_val))
     y_pred_proba_val = best_model.predict_proba(X_val)
     toarray = getattr(y_pred_proba_val, 'toarray', None)
@@ -122,26 +94,61 @@ def main():
 
     print("\n=== Final Validation Results ===")
     precision = precision_score(y_val, y_pred_val)
+    auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
     print(f"Precision: {precision:.4f}")
-    print(f"AUC-ROC: {roc_auc_score(y_val, y_pred_proba_val[:, 1]):.4f}")
+    print(f"AUC-ROC: {auc_roc:.4f}")
     
-    # Log best model
     with mlflow.start_run(nested=True):
-        # Log parameters
         for key, value in best_params.items():
             if value is not None:
                 mlflow.log_param(key, str(value))
         
-        # Log metrics
         metrics = {
-            "val_precision": precision_score(y_val, y_pred_val),
-            "val_auc_roc": roc_auc_score(y_val, y_pred_proba_val[:, 1])
+            "val_precision": precision,
+            "val_auc_roc": auc_roc
         }
         mlflow.log_metrics(metrics)
-        
-        # Log model
         sklearn.log_model(best_model, name="model")
+    
+    return best_model
 
+def main():
+    parser = argparse.ArgumentParser(
+        description='F1 Strategy Prediction using LightGBM',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument('--mode', type=str, default='train', choices=['tune', 'train', 'evaluate'],
+                        help='Execution mode: tune (Optuna), train (Fit with saved params), evaluate (Inference)')
+    parser.add_argument('--config', type=str, default='config.yaml', help='Path to config file')
+    
+    args = parser.parse_args()
+    config = load_config(args.config)
+    
+    df, train_df, val_df, test_df = load_data(config['DATA_PATH'])
+    
+    print(f"Total rows: {len(df)}")
+    print(f"Train size: {len(train_df)} ({len(train_df)/len(df):.2%})")
+    print(f"Val size: {len(val_df)} ({len(val_df)/len(df):.2%})")
+    print(f"Test size: {len(test_df)} ({len(test_df)/len(df):.2%})")
+    
+    X_train, y_train, X_val, y_val, imputer, encoder = prepare_data(train_df, val_df)
+    
+    if args.mode == 'tune':
+        run_tuning(train_df, val_df, config)
+    elif args.mode == 'train':
+        best_params = load_best_params(config['PARAMS_PATH'])
+        if best_params is None:
+            print(f"Error: No best parameters found at {config['PARAMS_PATH']}. Please run in 'tune' mode first.")
+            return
+        train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config)
+    elif args.mode == 'evaluate':
+        best_params = load_best_params(config['PARAMS_PATH'])
+        if best_params is None:
+            print(f"Error: No best parameters found at {config['PARAMS_PATH']}. Please run in 'tune' mode first.")
+            return
+        # For evaluation, we could also load a serialized model instead of retraining
+        # But for now, let's just retrain and show results as requested
+        train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config)
 
 if __name__ == "__main__":
     main()

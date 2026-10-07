@@ -192,8 +192,10 @@ def objective(
     # Return negative AUC-ROC (Optuna minimizes)
     return float(-val_auc_roc)
 
+
 def run_optuna_search(
-    df: pd.DataFrame,
+    train_df: pd.DataFrame,
+    val_df: pd.DataFrame,
     model_type: str = 'lgbm',
     n_trials: int = 50,
     n_jobs: int = -1,
@@ -203,26 +205,24 @@ def run_optuna_search(
 ) -> dict:
     """
     Run Optuna-based hyperparameter tuning.
-    
+
     Args:
-        df: Full dataset with F1 race data
+        train_df: Training data (pre-split)
+        val_df: Validation data (pre-split)
+        model_type: Type of model to use ('lgbm' or 'catboost')
         n_trials: Number of trials to run
         n_jobs: Number of parallel jobs (-1 for all available CPUs)
-        pruner: Pruning strategy - 'tpg' or 'median'
-        sampler: Sampler - 'tpes' or 'hbopt'
+        pruner: Pruning strategy - 'tpg' (Tree-Structured Pruning) or 'median'
+        sampler: Sampler - 'tpes' (Tree-structured Parzen Estimator) or 'hbopt' (Hyperband)
         verbose: Verbosity level (0-3)
-    
+
     Returns:
         dict: Results containing best hyperparameters and metrics
     """
-    # Load the F1 Strategy Dataset
-    train_df = df[df['Year'].isin([2022, 2023])].copy()
-    val_df = df[df['Year'] == 2024].copy()
-    
-    print(f"Total rows: {len(df)}")
-    print(f"Train size: {len(train_df)} ({len(train_df)/len(df):.2%})")
-    print(f"Val size: {len(val_df)} ({len(val_df)/len(df):.2%})")
-    
+    print(f"Total rows: {len(train_df) + len(val_df)}")
+    print(f"Train size: {len(train_df)} ({len(train_df)/(len(train_df)+len(val_df)):.2%})")
+    print(f"Val size: {len(val_df)} ({len(val_df)/(len(train_df)+len(val_df)):.2%})")
+
     # Create Optuna study
     study = create_optuna_study(
         study_name='f1_strategy_optuna',
@@ -231,197 +231,75 @@ def run_optuna_search(
         pruner=pruner,
         sampler=sampler
     )
-    
+
     # Run optimization
     print(f"\nStarting Optuna Search ({n_trials} trials)...")
     study.optimize(
-        lambda trial: objective(trial, train_df, val_df, n_trials=n_trials, n_jobs=n_jobs),
+        lambda trial: objective(trial, train_df, val_df, model_type=model_type, n_trials=n_trials, n_jobs=n_jobs),
         n_trials=n_trials,
         show_progress_bar=verbose > 0
     )
-    
+
     # Get best results
     best_trial = study.best_trial
-    # Use the best trial parameters directly
     best_params = best_trial.params
     best_score = -study.best_value  # Convert back to positive AUC-ROC
-    
-    # Get best model by retraining with best parameters
-    best_params = study.best_trial.params
-    
-    # Create imputer and encoder
+
+    # Retrain best model
     imputer = SimpleImputer(strategy='most_frequent')
     encoder = OrdinalEncoder()
-    
-    # Preprocess training data
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
-    
-    # Preprocess validation data
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
-    
-    # Define LightGBM classifier
-    lgb_model = lgb.LGBMClassifier(
-        n_estimators=best_params['n_estimators'],
-        learning_rate=best_params['learning_rate'],
-        num_leaves=best_params['num_leaves'],
-        max_depth=best_params['max_depth'],
-        min_child_samples=best_params['min_child_samples'],
-        subsample=best_params['subsample'],
-        colsample_bytree=best_params['colsample_bytree'],
-        reg_alpha=best_params['reg_alpha'],
-        reg_lambda=best_params['reg_lambda'],
-        min_data_for_leaf=best_params['min_data_for_leaf'],
-        min_data_for_host=best_params['min_data_for_host'],
-        feature_fraction=best_params['feature_fraction'],
-        bagging_fraction=best_params['bagging_fraction'],
-        bagging_freq=best_params['bagging_freq'],
-        verbose=best_params['verbose'],
-        n_jobs=n_jobs,
-        random_state=best_params['seed']
-    )
-    
-    # Train model with early stopping
-    lgb_model.fit(
-        X_train, y_train,
-        eval_set=[(X_val, y_val)],  # Validation data for early stopping
-        callbacks=[lgb.early_stopping(stopping_rounds=50)], # Number of early stopping rounds
-    )
-    best_model = lgb_model
-    
-    # Evaluate on validation set
-    y_pred_val = np.asarray(best_model.predict(X_val))
-    probs = best_model.predict_proba(X_val)
-    y_pred_proba_val = np.asarray(probs) if hasattr(probs, 'toarray') else np.asarray(probs)
+
+    if model_type == 'lgbm':
+        model = lgb.LGBMClassifier(
+            n_estimators=best_params.get('n_estimators', 100),
+            learning_rate=best_params.get('learning_rate', 0.1),
+            num_leaves=best_params.get('num_leaves', 31),
+            max_depth=best_params.get('max_depth', 10),
+            min_child_samples=best_params.get('min_child_samples', 20),
+            subsample=best_params.get('subsample', 0.8),
+            colsample_bytree=best_params.get('colsample_bytree', 0.8),
+            reg_alpha=best_params.get('reg_alpha', 0.1),
+            reg_lambda=best_params.get('reg_lambda', 0.1),
+            min_data_for_leaf=best_params.get('min_data_for_leaf', 10),
+            min_data_for_host=best_params.get('min_data_for_host', 2),
+            feature_fraction=best_params.get('feature_fraction', 0.8),
+            bagging_fraction=best_params.get('bagging_fraction', 0.8),
+            bagging_freq=best_params.get('bagging_freq', 1),
+            verbose=-1,
+            random_state=best_params.get('seed', 42),
+            n_jobs=n_jobs
+        )
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], callbacks=[lgb.early_stopping(stopping_rounds=50)])
+    else:
+        model = CatBoostClassifier(
+            iterations=best_params.get('iterations', 100),
+            learning_rate=best_params.get('learning_rate', 0.1),
+            depth=best_params.get('depth', 6),
+            l2_leaf_reg=best_params.get('l2_leaf_reg', 1.0),
+            random_seed=best_params.get('random_seed', 42),
+            loss_function=best_params.get('loss_function', 'Logloss'),
+            verbose=0,
+            random_state=best_params.get('random_seed', 42),
+            thread_count=n_jobs
+        )
+        model.fit(X_train, y_train, eval_set=[(X_val, y_val)], early_stopping_rounds=50, verbose=0)
+
+    # Final evaluation
+    y_pred_val = np.asarray(model.predict(X_val))
+    probs = np.asarray(model.predict_proba(X_val))
+    y_pred_proba_val = probs[:, 1] if hasattr(probs, 'toarray') else probs[:, 1]
 
     val_precision = precision_score(y_val, y_pred_val)
-    val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
-    
-    # Log to MLflow
-    print("\n=== Optuna Search Results ===")
-    print(f"Best Parameters: {best_params}")
-    print(f"Best CV Score (AUC-ROC): {best_score:.4f}")
-    print(f"Validation Precision: {val_precision:.4f}")
-    print(f"Validation AUC-ROC: {val_auc_roc:.4f}")
-    
-    # Log to MLflow
-    mlflow.log_params({
-        'n_estimators': best_params.get('n_estimators', 100),
-        'learning_rate': best_params.get('learning_rate', 0.05),
-        'num_leaves': best_params.get('num_leaves', 31),
-        'max_depth': best_params.get('max_depth', None),
-        'min_child_samples': best_params.get('min_child_samples', 10),
-        'subsample': best_params.get('subsample', 1.0),
-        'colsample_bytree': best_params.get('colsample_bytree', 1.0),
-        'reg_alpha': best_params.get('reg_alpha', 0.0),
-        'reg_lambda': best_params.get('reg_lambda', 0.0),
-        'min_data_for_leaf': best_params.get('min_data_for_leaf', 5),
-        'min_data_for_host': best_params.get('min_data_for_host', 1),
-        'feature_fraction': best_params.get('feature_fraction', 1.0),
-        'bagging_fraction': best_params.get('bagging_fraction', 1.0),
-        'bagging_freq': best_params.get('bagging_freq', 0),
-        'verbose': best_params.get('verbose', 0),
-        'seed': best_params.get('seed', 42),
-        'random_state': best_params.get('random_state', 42),
-        'n_jobs': n_jobs
-    })
-    mlflow.log_metrics({
-        'val_precision': float(val_precision),
-        'val_auc_roc': float(val_auc_roc),
-        'cv_auc_roc': float(best_score)
-    })
-    
-    # Save best model as "model"
-    with mlflow.start_run(nested=True):
-        sklearn.log_model(best_model, artifact_path="model")
-        
-    # Save best model as "best_model"
-    with mlflow.start_run(nested=True):
-        sklearn.log_model(best_model, artifact_path="best_model")
-    
+    val_auc_roc = roc_auc_score(y_val, y_pred_proba_val)
+
     return {
-        'best_params': best_params,
-        'best_score': best_score,
-        'val_precision': val_precision,
-        'val_auc_roc': val_auc_roc,
-        'best_model': best_model,
-        'study': study
+        "best_params": best_params,
+        "best_score": best_score,
+        "val_precision": val_precision,
+        "val_auc_roc": val_auc_roc,
+        "best_model": model,
+        "study": study
     }
 
-
-def main():
-    """Main function for Optuna hyperparameter search."""
-    parser = argparse.ArgumentParser(
-        description='F1 Strategy Hyperparameter Search using Optuna',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    
-    parser.add_argument(
-        '--n-trials',
-        type=int,
-        default=50,
-        help='Number of trials to run'
-    )
-    parser.add_argument(
-        '--n-jobs',
-        type=int,
-        default=-1,
-        help='Number of parallel jobs (-1 for all available CPUs)'
-    )
-    parser.add_argument(
-        '--pruner',
-        type=str,
-        default='tpg',
-        choices=['tpg', 'median'],
-        help='Pruning strategy'
-    )
-    parser.add_argument(
-        '--sampler',
-        type=str,
-        default='tpes',
-        choices=['tpes', 'hbopt'],
-        help='Sampler - TPES (Tree-structured Parzen Estimator) or HBOpt (Hyperband)'
-    )
-    parser.add_argument(
-        '--model-type',
-        type=str,
-        default='lgbm',
-        choices=['lgbm', 'catboost'],
-        help='Type of model to use for hyperparameter search (lgbm or catboost)'
-    )
-    parser.add_argument(
-        '--verbose',
-        type=int,
-        default=1,
-        help='Verbosity level (0-3)'
-    )
-    
-    args = parser.parse_args()
-    
-    # Load dataset
-    df = pd.read_csv('data/f1_strategy_dataset_v4.csv')
-    
-    # Run search
-    results = run_optuna_search(
-        df,
-        model_type=args.model_type,
-        n_trials=args.n_trials,
-        n_jobs=args.n_jobs,
-        pruner=args.pruner,
-        sampler=args.sampler,
-        verbose=args.verbose
-    )
-    
-    print("\n=== Final Results ===")
-    print(f"Best Parameters: {results['best_params']}")
-    print(f"Best CV Score (AUC-ROC): {results['best_score']:.4f}")
-    print(f"Validation Precision: {results['val_precision']:.4f}")
-    print(f"Validation AUC-ROC: {results['val_auc_roc']:.4f}")
-    
-    # Print all trial results
-    #print("\n=== All Trial Results ===")
-    #for i, trial in enumerate(results['study'].trials):
-    #    print(f"Trial {i+1}: {trial.value:.4f} (AUC-ROC: {-trial.value:.4f})")
-
-
-if __name__ == "__main__":
-    main()
