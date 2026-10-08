@@ -6,12 +6,14 @@ import numpy as np
 import json
 import yaml
 import os
+import sys
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OrdinalEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
 from f1_strategy_dataset.hyperparameter_search_optuna import run_optuna_search
+from f1_strategy_dataset.mlflow_utils import load_best_model
 from f1_strategy_dataset import settings
 
 def load_config(config_path):
@@ -113,6 +115,48 @@ def train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config):
     
     return best_model
 
+
+def evaluate(config: dict) -> None:
+    """
+    Load the best model from MLflow and evaluate it on the test set.
+
+    The model is restored from its persisted artifact directory (no retraining).
+    Preprocessing objects are reconstructed by fitting on the training data and
+    transforming the test set, mirroring the train/val split.
+
+    Args:
+        config: The project config dict.
+    """
+    print("\n=== Evaluating Best Model ===")
+    model = load_best_model(config)
+    print(f"Loaded best model: {type(model).__name__}")
+
+    # Load the train and test sets
+    _, train_df, _, test_df = load_data(config['DATA_PATH'])
+
+    # Reconstruct preprocessing objects (fit on train, transform test)
+    imputer = SimpleImputer(strategy='most_frequent')
+    encoder = OrdinalEncoder()
+    preprocess_f1_data(train_df, imputer, encoder, is_training=True)
+    X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
+
+    # Predict on the test set
+    y_pred = np.array(model.predict(X_test))
+    y_pred_proba = np.asarray(model.predict_proba(X_test))
+
+    precision = precision_score(y_test, y_pred)
+    auc_roc = roc_auc_score(y_test, y_pred_proba[:, 1])
+    print(f"Test Precision: {precision:.4f}")
+    print(f"Test AUC-ROC: {auc_roc:.4f}")
+
+    with mlflow.start_run(nested=True):
+        metrics = {
+            "test_precision": precision,
+            "test_auc_roc": auc_roc
+        }
+        mlflow.log_metrics(metrics)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='F1 Strategy Prediction using LightGBM',
@@ -144,13 +188,13 @@ def main():
             return
         train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config)
     elif args.mode == 'evaluate':
-        best_params = load_best_params(config['PARAMS_PATH'])
-        if best_params is None:
-            print(f"Error: No best parameters found at {config['PARAMS_PATH']}. Please run in 'tune' mode first.")
-            return
-        # For evaluation, we could also load a serialized model instead of retraining
-        # But for now, let's just retrain and show results as requested
-        train_and_evaluate(X_train, y_train, X_val, y_val, best_params, config)
+        # Load the best serialized model from MLflow and evaluate on the test set.
+        # Fails fast if the best model's artifacts are missing on disk.
+        try:
+            evaluate(config)
+        except Exception as e:
+            print(f"Failed to load best model: {e}")
+            return 1
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

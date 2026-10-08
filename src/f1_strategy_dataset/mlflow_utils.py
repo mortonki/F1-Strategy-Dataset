@@ -11,6 +11,7 @@ import pandas as pd
 import numpy as np
 import logging
 import os
+from typing import Any
 
 # Suppress MLflow dependency export log
 logging.getLogger('mlflow.utils.uv_utils').setLevel(logging.ERROR)
@@ -163,3 +164,50 @@ def log_all(model, params: dict, metrics_dict: dict) -> None:
     log_parameters(params)
     log_metrics(metrics_dict)
     log_model(model, name="model")
+
+
+def load_best_model(config: dict) -> Any:
+    """
+    Load the best model (highest val_auc_roc) from MLflow.
+
+    The model is restored from its persisted artifact directory on disk
+    (mlruns/<repo>/models/<model_id>/artifacts). If the best model's
+    artifacts are missing, an error is raised so the caller can fail fast.
+
+    Args:
+        config: The project config dict (must contain MLFLOW_TRACKING_URI).
+
+    Returns:
+        The loaded sklearn model.
+
+    Raises:
+        ValueError: If no model with a val_auc_roc metric is found.
+        MlflowException: If the best model's artifacts are missing on disk.
+    """
+    import sqlite3
+    from mlflow.exceptions import MlflowException
+
+    db_path = config['MLFLOW_TRACKING_URI'].replace('sqlite:///', '')
+    conn = sqlite3.connect(db_path)
+    try:
+        row = conn.execute(
+            "select lm.model_id, lm.artifact_location from logged_models lm "
+            "join logged_model_metrics lmm on lm.model_id=lmm.model_id "
+            "where lmm.metric_name='val_auc_roc' "
+            "order by lmm.metric_value desc limit 1"
+        ).fetchone()
+    finally:
+        conn.close()
+
+    if row is None:
+        raise ValueError("No model found in MLflow with a val_auc_roc metric")
+
+    model_id, artifact_location = row
+    try:
+        model = mlflow.sklearn.load_model(artifact_location)
+    except MlflowException as e:
+        raise MlflowException(
+            f"Best model '{model_id}' not found on disk: {e}"
+        ) from e
+
+    return model
