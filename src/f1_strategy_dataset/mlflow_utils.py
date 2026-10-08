@@ -204,7 +204,7 @@ def load_best_model(config: dict) -> Any:
 
     model_id, artifact_location = row
     try:
-        model = mlflow.sklearn.load_model(artifact_location)
+        model = sklearn.load_model(artifact_location)
     except MlflowException as e:
         raise MlflowException(
             f"Best model '{model_id}' not found on disk: {e}"

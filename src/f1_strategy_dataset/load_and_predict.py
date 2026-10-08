@@ -1,88 +1,83 @@
 #!/usr/bin/env python
-"""Utility script to load a trained F1 strategy model from MLflow and make predictions on new data.
+"""Utility script to load a trained F1 strategy model from MLflow and make predictions.
 
-The script performs the following steps:
+Mirrors the ``evaluate()`` function in ``main.py``:
+1. Load the best performing model (highest val_auc_roc) from MLflow.
+2. Load the dataset and split into train/test using ``load_data``.
+3. Fit a SimpleImputer and OrdinalEncoder on the training data via ``preprocess_f1_data``.
+4. Preprocess the test data using the fitted transformers.
+5. Predict and write the predictions to a CSV file.
 
-1. **Determine the MLflow run** – If a run ID is supplied via the ``--run-id`` flag the
-   script uses that run.  Otherwise it queries the experiment for the most recent run.
-2. **Load the model** – The model is loaded from the ``best_model`` artifact that
-   is logged in :pyfunc:`main.main`.
-3. **Re‑create the preprocessing pipeline** – The training data is re‑loaded and
-   split in the same way as in :pyfunc:`main.main`.  ``preprocess_f1_data`` is
-   called with ``is_training=True`` to obtain a fitted ``SimpleImputer`` and
-   ``OrdinalEncoder``.
-4. **Preprocess the new data** – The new data file is read, the same preprocessing
-   steps are applied using the fitted transformer objects, and the feature matrix
-   is produced.
-5. **Predict** – The model predicts the target and the predictions are written
-   to ``predictions.csv`` (or a user‑supplied output path).
-
-The script is intentionally lightweight and does not depend on any external
-configuration beyond the local MLflow tracking URI (``sqlite:///mlflow.db``) and the
-``f1_strategy_dataset_v4.csv`` training file.
+An optional ``--new-data`` argument can be provided to predict on a custom CSV file
+instead of the test set.
 """
-
 from __future__ import annotations
-from f1_strategy_dataset.main import load_data
 
+import argparse
+import mlflow
+from mlflow import sklearn
+import pandas as pd
+import numpy as np
+from pathlib import Path
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OrdinalEncoder
+
+from f1_strategy_dataset.main import load_data
+from f1_strategy_dataset.mlflow_utils import load_best_model
+from f1_strategy_dataset.preprocessing import preprocess_f1_data
+from f1_strategy_dataset import settings
+from f1_strategy_dataset.settings import load_config
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Load an MLflow model and predict on new F1 data.")
-    parser.add_argument(
-        "--run-id",
-        type=str,
-        default=None,
-        help="MLflow run ID containing the best model. If omitted, the latest run is used.",
+    parser = argparse.ArgumentParser(
+        description="Load the best MLflow model and predict on F1 data."
     )
     parser.add_argument(
-        "--data-path",
+        "--config",
         type=str,
-        default="f1_strategy_dataset_v4.csv",
-        help="Path to the full training dataset used for fitting the preprocessors.",
+        default="config.yaml",
+        help="Path to the config file.",
     )
     parser.add_argument(
         "--new-data",
         type=str,
-        required=True,
-        help="Path to the CSV file containing new observations to predict.",
+        default=None,
+        help="Path to a CSV file containing new observations to predict. "
+        "If omitted, the test set (year 2025) from load_data is used.",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="predictions.csv",
-        help="File to write predictions to.",
+        default="outputs/predictions.csv",
+        help="File to write predictions to (defaults to outputs/predictions.csv).",
     )
     args = parser.parse_args()
 
-    # Determine run ID
-    run_id = args.run_id or _get_latest_run_id()
-    print(f"Using MLflow run: {run_id}")
+    config = load_config(args.config)
+    settings.init_mlflow(config)
 
-    # Load model
-    model = load_model(run_id)
-    print("Model loaded.")
+    # Load the best performing model (highest val_auc_roc) from MLflow.
+    model = load_best_model(config)
+    print(f"Loaded best model: {type(model).__name__}")
 
-    # Load training data to fit preprocessors
-    train_df = pd.read_csv(args.data_path)
-    # Split train/val/test as in main.py to get the same training split
-    train_df = train_df[train_df["Year"].isin([2022, 2023])].copy()
-    imputer, encoder = prepare_preprocessors(train_df)
-    print("Preprocessors fitted.")
+    # Load the dataset and split into train/test using load_data.
+    _, train_df, _, test_df = load_data(config["DATA_PATH"])
 
-    # Load new data and preprocess
-    new_df = pd.read_csv(args.new_data)
-    X_new = preprocess_new_data(new_df, imputer, encoder)
-    print("New data preprocessed.")
+    # Reconstruct preprocessing objects (fit on train, transform test).
+    imputer = SimpleImputer(strategy="most_frequent")
+    encoder = OrdinalEncoder()
+    preprocess_f1_data(train_df, imputer, encoder, is_training=True)
+    X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
 
-    # Predict
-    predictions = model.predict(X_new)
+    # Predict.
+    y_pred = np.array(model.predict(X_test))
     print("Prediction completed.")
 
-    # Save predictions
+    # Save predictions.
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame({"prediction": predictions}).to_csv(out_path, index=False)
+    pd.DataFrame({"prediction": y_pred}).to_csv(out_path, index=False)
     print(f"Predictions written to {out_path}")
 
 
