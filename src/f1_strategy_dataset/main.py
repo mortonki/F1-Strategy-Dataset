@@ -12,6 +12,7 @@ from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
 from f1_strategy_dataset.hyperparameter_search_optuna import run_optuna_search
+from f1_strategy_dataset import settings
 
 def load_config(config_path):
     with open(config_path, 'r') as f:
@@ -123,7 +124,8 @@ def main():
     
     args = parser.parse_args()
     config = load_config(args.config)
-    
+    settings.init_mlflow(config)
+
     df, train_df, val_df, test_df = load_data(config['DATA_PATH'])
     
     print(f"Total rows: {len(df)}")

@@ -10,7 +10,6 @@ wheels/
 .venv
 
 # MLflow artifacts
-mlflow.db
 mlruns/
 
 # Jupyter Notebook checkpoints

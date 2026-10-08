@@ -25,13 +25,6 @@ from f1_strategy_dataset.preprocessing import preprocess_f1_data
 logging.getLogger('mlflow.utils.uv_utils').setLevel(logging.ERROR)
 logging.getLogger('mlflow.utils.environment').setLevel(logging.ERROR)
 
-# Global tracking URI - can be overridden by MLFLOW_TRACKING_URI environment variable
-TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
-mlflow.set_tracking_uri(TRACKING_URI)
-
-# Set experiment
-mlflow.set_experiment("F1 Strategy Prediction")
-
 trial = optuna.trial.Trial
 
 

@@ -23,88 +23,8 @@ configuration beyond the local MLflow tracking URI (``sqlite:///mlflow.db``) and
 """
 
 from __future__ import annotations
-from typing import Any
+from f1_strategy_dataset.main import load_data
 
-
-import argparse
-import os
-from pathlib import Path
-
-import mlflow
-from mlflow import sklearn
-import pandas as pd
-from f1_strategy_dataset.mlflow_utils import TRACKING_URI
-
-mlflow.set_tracking_uri(TRACKING_URI)
-
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
-
-from f1_strategy_dataset.preprocessing import preprocess_f1_data
-
-
-def _get_latest_run_id(experiment_name: str = "F1 Strategy Prediction") -> str:
-    """Return the run ID of the most recent run in the given experiment.
-
-    MLflow's :pyfunc:`mlflow.search_runs` API expects an ``experiment_ids``
-    argument (a list of integer IDs).  The original implementation passed a
-    list of experiment names which caused a ``TypeError``.  This helper now
-    resolves the experiment name to its numeric ID using
-    :pyfunc:`mlflow.get_experiment_by_name` and then queries for runs.
-    """
-    experiment = mlflow.get_experiment_by_name(experiment_name)
-    if experiment is None:
-        raise RuntimeError(f"Experiment '{experiment_name}' not found.")
-    experiment_id = experiment.experiment_id
-    runs = mlflow.search_runs(experiment_ids=[experiment_id])
-    if len(runs) == 0:
-        raise RuntimeError(f"No runs found in experiment '{experiment_name}'.")
-    
-    # Ensure runs is a DataFrame to support sort_values and satisfy type checkers
-    df_runs = pd.DataFrame(runs)
-    latest_run = df_runs.sort_values("start_time", ascending=False).iloc[0]
-    return latest_run["run_id"]
-
-
-def load_model(run_id: str) -> Any:
-    """Load the best model from the specified MLflow run.
-
-    The artifact path used during training is ``best_model``.
-    """
-    return sklearn.load_model(f"runs:/{run_id}/best_model")
-
-
-def prepare_preprocessors(train_df: pd.DataFrame) -> tuple[SimpleImputer, OrdinalEncoder]:
-    """Fit the imputer and encoder on the training data.
-
-    The function mirrors the logic in :pyfunc:`main.main` – it creates a
-    ``SimpleImputer`` with ``most_frequent`` strategy and an ``OrdinalEncoder``
-    for the ``Compound`` column.  The fitted objects are returned.
-    """
-    imputer = SimpleImputer(strategy="most_frequent")
-    encoder = OrdinalEncoder()
-    # ``preprocess_f1_data`` returns X, y, imputer, encoder when is_training=True
-    _, _, fitted_imputer, fitted_encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
-    return fitted_imputer, fitted_encoder
-
-
-def preprocess_new_data(df: pd.DataFrame, imputer: SimpleImputer, encoder: OrdinalEncoder) -> pd.DataFrame:
-    """Apply the same preprocessing steps to new data.
-
-    The function expects the new data to contain the same columns as the
-    training data.  If the target column ``PitNextLap`` is missing it is
-    ignored.
-    """
-    # Ensure the target column is present for consistency with the training
-    # pipeline.  If it is missing we simply drop it.
-    if "PitNextLap" in df.columns:
-        X, _ = preprocess_f1_data(df, imputer, encoder, is_training=False)
-    else:
-        # Drop the target if present, then run preprocessing
-        df_copy = df.copy()
-        df_copy = df_copy.drop(columns=[col for col in ["PitNextLap"] if col in df_copy.columns])
-        X, _ = preprocess_f1_data(df_copy, imputer, encoder, is_training=False)
-    return X
 
 
 def main() -> None:

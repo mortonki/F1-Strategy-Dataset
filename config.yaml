@@ -29,3 +29,9 @@ OPTUNA_TRIALS: 50
 OPTUNA_N_JOBS: -1
 OPTUNA_PRUNER: "tpg"
 OPTUNA_SAMPLER: "tpes"
+
+# MLflow Tracking
+MLFLOW_TRACKING_URI: "mlruns/mlflow.db"
+
+# Environment Variables
+PYTHONPATH: "src"
