@@ -25,10 +25,15 @@ Predicting when a driver will pit is crucial for understanding race dynamics. Si
 
 ## Project Structure
 The project follows a modular design to ensure maintainability and reusability:
-- `src/f1-strategy-dataset/preprocessing.py`: Data cleaning, feature engineering (lags, rolling windows), and encoding.
-- `src/f1-strategy-dataset/hyperparameter_search_optuna.py`: Manages the Optuna study and objective functions.
-- `src/f1-strategy-dataset/mlflow_utils.py`: Centralizes MLflow logging logic.
-- `src/f1-strategy-dataset/main.py`: Orchestrates the entire pipeline from preprocessing to training and evaluation.
+- `src/f1_strategy_dataset/__init__.py`: Package initialization.
+- `src/f1_strategy_dataset/settings.py`: Centralized configuration loading and MLflow tracking setup.
+- `src/f1_strategy_dataset/config.yaml`: Project configuration (data paths, hyperparameter defaults, Optuna settings, MLflow tracking URI).
+- `src/f1_strategy_dataset/preprocessing.py`: Data cleaning, feature engineering (lags, rolling windows), and encoding.
+- `src/f1_strategy_dataset/hyperparameter_search_optuna.py`: Manages the Optuna study and objective functions.
+- `src/f1_strategy_dataset/hyperparameter_search.py`: Alternative `RandomizedSearchCV`-based tuning.
+- `src/f1_strategy_dataset/mlflow_utils.py`: Centralizes MLflow logging logic.
+- `src/f1_strategy_dataset/main.py`: Orchestrates the entire pipeline from preprocessing to training and evaluation.
+- `src/f1_strategy_dataset/load_and_predict.py`: Standalone inference script to load the best model and generate predictions.
 
 ## Getting Started
 
@@ -44,9 +49,26 @@ The project follows a modular design to ensure maintainability and reusability:
    ```
 
 ### Running the Pipeline
+The entry point `f1-strategy-dataset` accepts a `--mode` argument with three options:
+
+| Mode | Description |
+|------|-------------|
+| `tune` | Run the Optuna hyperparameter search and save the best parameters to `data/best_params.json`. |
+| `train` | Load the saved best parameters, train the final model, and evaluate it on the validation set. |
+| `evaluate` | Load the best model (highest `val_auc_roc`) from MLflow and evaluate it on the test set. |
+
 To run the full training and optimization pipeline:
 ```bash
-uv run f1-strategy-dataset
+uv run f1-strategy-dataset --mode tune
+uv run f1-strategy-dataset --mode train
+uv run f1-strategy-dataset --mode evaluate
+```
+
+### Inference
+To load the best model and generate predictions on the 2025 test set (or a custom CSV):
+```bash
+uv run python src/f1_strategy_dataset/load_and_predict.py
+uv run python src/f1_strategy_dataset/load_and_predict.py --new-data custom.csv --output outputs/predictions.csv
 ```
 
 ## Methodology
@@ -57,11 +79,12 @@ uv run f1-strategy-dataset
 
 ## Progress
 - [x] Project structure and memory bank initialized.
-- [x] Basic preprocessing pipeline implemented.
+- [x] Preprocessing pipeline implemented (lagged features, rolling averages).
 - [x] Optuna hyperparameter search integrated.
 - [x] MLflow logging utilities functional.
-- [ ] Detailed exploration of `f1_strategy_dataset_v4.csv`.
+- [x] Evaluate mode added to load and assess the best MLflow model.
+- [x] Standalone inference script (`load_and_predict.py`) implemented.
+- [ ] Detailed exploration of `f1_strategy_dataset_v4.csv` (e.g., INTERMEDIATE/WET compounds not covered by the SOFT/MEDIUM/HARD encoding).
 - [ ] Optimization of Optuna search space for better AUC-ROC.
-- [ ] Testing of the inference script `load_and_predict.py`.
 - [ ] Final evaluation on the 2025 test set.
 

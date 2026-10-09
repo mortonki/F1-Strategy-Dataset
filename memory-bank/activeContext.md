@@ -1,22 +1,24 @@
 # Active Context
 
 ## Current Focus
-- Implementing `evaluate`-mode model loading that loads the best `val_auc_roc` model and fails fast if its artifacts are missing on disk.
+- The pipeline is complete end-to-end: `tune` (Optuna) → `train` (fit with saved params) → `evaluate` (load best model from MLflow, assess on test set).
+- `load_and_predict.py` is a standalone inference script that mirrors `evaluate()` and writes predictions to CSV.
+- Two LightGBM models are persisted in MLflow (`mlruns/mlflow.db`): `m-4fb15c395ddd4e00a8f962d0519a8b8f` and `m-7115f37d76e1450190ea69373d94001f`, both with `val_auc_roc=0.7517`.
+- Open data-quality item: the preprocessing only encodes SOFT/MEDIUM/HARD compounds, but the data also contains INTERMEDIATE and WET (dropped and imputed to 0).
 
 ## Recent Changes
-- Created memory bank files.
-- Analyzed `main.py`, `preprocessing.py`, and `hyperparameter_search_optuna.py`.
-- Added `load_best_model(config)` to `mlflow_utils.py`: queries the MLflow DB for the highest `val_auc_roc` model, loads it via `mlflow.sklearn.load_model`, raises `MlflowException` if artifacts are missing on disk / `ValueError` if no metric.
-- Added `evaluate(config)` to `main.py`: loads the best model, reconstructs preprocessing (fit on train, transform test), predicts on the test set, logs test precision/AUC-ROC.
-- Wired `main()`'s `evaluate` branch to call `evaluate(config)` and return exit code 1 on failure (stopped the fall-through to `train_and_evaluate`). Changed `if __name__ == "__main__": main()` to `sys.exit(main())`.
+- Reworked `load_and_predict.py` to mirror `evaluate()`: loads the best `val_auc_roc` model via `load_best_model`, reconstructs preprocessing (fit on train, transform test), predicts, and writes a `prediction` CSV. Added `--new-data` and `--output` args.
+- Centralized config via `settings.py` (`load_config`, `get_tracking_uri`, `init_mlflow`) and moved MLflow tracking setup out of `main.py`/`mlflow_utils.py`.
+- Console script entry point `f1-strategy-dataset` wired to `f1_strategy_dataset.main:main` in `pyproject.toml`.
 
 ## Next Steps
-- Verify the data quality in `f1_strategy_dataset_v4.csv`.
+- Investigate the INTERMEDIATE/WET compound handling (currently coerced to NaN then imputed to 0).
 - Experiment with additional lagged features.
-- Refine the Optuna search space.
+- Refine the Optuna search space for better AUC-ROC.
 
 ## Important Decisions
 - Using LightGBM as the primary model due to its efficiency with tabular data.
 - Implementing a time-series aware split (2022-2023 train, 2024 val, 2025 test).
-- The best model by `val_auc_roc` (`m-ddc97f979661402c8fb7af982700f712`, auc=0.7892) was originally missing on disk; the evaluate mode deliberately surfaces this as a failure.
-- Preprocessing contract: `preprocess_f1_data(df, imputer, encoder, is_training=True)` fits; `is_training=False` transforms.
+- Preprocessing contract: `preprocess_f1_data(df, imputer, encoder, is_training=True)` fits and returns `(X, y, imputer, encoder)`; `is_training=False` transforms and returns `(X, y)`.
+- Config-driven: `config.yaml` holds data paths, LightGBM defaults, Optuna settings, and the MLflow tracking URI; `settings.py` resolves relative URIs against the repo root.
+- Package name is `f1_strategy_dataset` (underscores) on disk, while the `pyproject.toml` distribution name and console script are `f1-strategy-dataset` (hyphens).
