@@ -65,6 +65,17 @@ def preprocess_f1_data(
     df['Rolling_degradation'] = df.groupby(['Year', 'Race', 'Driver'])['Cumulative_Degradation'].transform(
         lambda x: x.rolling(window=3, min_periods=1).mean()
     )
+
+    # TyreLife is the strongest predictor (corr ~0.266) but was previously dropped.
+    # Add lagged/rolling tyre-life features (raw TyreLife/Normalized_TyreLife are
+    # already present in the data and added to feature_cols in main.py).
+    df['TyreLife_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['TyreLife'].shift(1)
+    df['TyreLife_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['TyreLife'].shift(2)
+
+    # Rolling average of TyreLife (tyre degradation rate)
+    df['Rolling_avg_TyreLife'] = df.groupby(['Year', 'Race', 'Driver'])['TyreLife'].transform(
+        lambda x: x.rolling(window=3, min_periods=1).mean()
+    )
     
     # Fill NaN values (from shifts) with 0
     # Only fill numeric columns with 0, leave string/categorical columns unchanged
@@ -75,7 +86,7 @@ def preprocess_f1_data(
     df = df.drop(['Driver', 'Race'], axis=1)
     
     # Convert Compound column to categorical with specified order
-    categories = ['SOFT', 'MEDIUM', 'HARD']
+    categories = ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET']
     dtype = pd.CategoricalDtype(categories=categories, ordered=True)
     df['Compound'] = df['Compound'].astype(dtype)
     
@@ -143,6 +154,17 @@ def create_lagged_features(
     
     # Rolling degradation (rolling average of Cumulative_Degradation)
     df['Rolling_degradation'] = df.groupby(group_cols)['Cumulative_Degradation'].transform(
+        lambda x: x.rolling(window=3, min_periods=1).mean()
+    )
+
+    # TyreLife is the strongest predictor (corr ~0.266) but was previously dropped.
+    # Add lagged/rolling tyre-life features (raw TyreLife/Normalized_TyreLife are
+    # already present in the data and added to feature_cols in main.py).
+    df['TyreLife_lag1'] = df.groupby(group_cols)['TyreLife'].shift(1)
+    df['TyreLife_lag2'] = df.groupby(group_cols)['TyreLife'].shift(2)
+
+    # Rolling average of TyreLife (tyre degradation rate)
+    df['Rolling_avg_TyreLife'] = df.groupby(group_cols)['TyreLife'].transform(
         lambda x: x.rolling(window=3, min_periods=1).mean()
     )
     
