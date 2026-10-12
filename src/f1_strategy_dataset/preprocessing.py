@@ -2,7 +2,7 @@
 F1 Strategy Dataset Preprocessing Module
 
 This module contains functions for preprocessing F1 race data, including:
-- Creating lagged features for Position, LapTime, and degradation metrics
+- Creating lagged features for Position, pace-change (LapTime_Delta), and degradation metrics
 - Encoding categorical variables (Compound)
 - Handling missing values
 """
@@ -28,7 +28,7 @@ def preprocess_f1_data(
     
     Args:
         df: Input DataFrame with F1 race data (should contain columns: Position, 
-            LapTime (s), LapTime_Delta, Cumulative_Degradation, Compound, PitNextLap)
+            LapTime_Delta, Cumulative_Degradation, Compound, PitNextLap)
         imputer: Trained SimpleImputer for handling missing values
         encoder: Trained OrdinalEncoder for Compound column
         is_training: If True, returns X and y separately; otherwise returns processed DataFrame
@@ -44,16 +44,17 @@ def preprocess_f1_data(
         >>> X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=True)
         >>> X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=True)
     """
-    # Create lagged features for Position, LapTime, and degradation metrics
+    # Create lagged features for Position, pace-change (LapTime_Delta), and degradation metrics
     # Group by Driver, Race, Year to maintain temporal order within sequences
     df['Position_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(1)
     df['Position_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(2)
     df['Position_lag3'] = df.groupby(['Year', 'Race', 'Driver'])['Position'].shift(3)
     
-    # LapTime lags
-    df['LapTime_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(1)
-    df['LapTime_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(2)
-    df['LapTime_lag3'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime (s)'].shift(3)
+    # LapTime_Delta lags (pace change over time, more relevant for pit decisions than
+    # absolute pace. Raw LapTime (s) is dropped as it is highly collinear with LapTime_Delta).
+    df['LapTime_Delta_lag1'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime_Delta'].shift(1)
+    df['LapTime_Delta_lag2'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime_Delta'].shift(2)
+    df['LapTime_Delta_lag3'] = df.groupby(['Year', 'Race', 'Driver'])['LapTime_Delta'].shift(3)
     
     # Rolling average pace (using LapTime_Delta as a proxy for pace change)
     # Rolling average of LapTime_Delta over 3 laps
@@ -107,8 +108,9 @@ def preprocess_f1_data(
         compound_encoded_array = np.asarray(encoder.transform(compound_encoded))
     df['Compound_encoded'] = compound_encoded_array[:, 0]
     
-    # Drop the original Compound column
-    df.drop('Compound', axis=1, inplace=True)
+    # Drop the original Compound column and raw LapTime (s) (highly collinear with
+    # LapTime_Delta, which is already provided in the data).
+    df.drop(['Compound', 'LapTime (s)'], axis=1, inplace=True)
     
     # Separate features and target variable
     X = df.drop('PitNextLap', axis=1)
@@ -125,7 +127,7 @@ def create_lagged_features(
     group_cols: list = ['Driver', 'Race', 'Year']
 ) -> pd.DataFrame:
     """
-    Create lagged features for Position, LapTime, and degradation metrics.
+    Create lagged features for Position, pace-change (LapTime_Delta), and degradation metrics.
     
     This function creates lagged features grouped by the specified columns.
     It can be used as a standalone function or as part of the preprocessing pipeline.
@@ -142,10 +144,11 @@ def create_lagged_features(
     df['Position_lag2'] = df.groupby(group_cols)['Position'].shift(2)
     df['Position_lag3'] = df.groupby(group_cols)['Position'].shift(3)
     
-    # LapTime lags
-    df['LapTime_lag1'] = df.groupby(group_cols)['LapTime (s)'].shift(1)
-    df['LapTime_lag2'] = df.groupby(group_cols)['LapTime (s)'].shift(2)
-    df['LapTime_lag3'] = df.groupby(group_cols)['LapTime (s)'].shift(3)
+    # LapTime_Delta lags (pace change over time, more relevant for pit decisions than
+    # absolute pace. Raw LapTime (s) is dropped as it is highly collinear with LapTime_Delta).
+    df['LapTime_Delta_lag1'] = df.groupby(group_cols)['LapTime_Delta'].shift(1)
+    df['LapTime_Delta_lag2'] = df.groupby(group_cols)['LapTime_Delta'].shift(2)
+    df['LapTime_Delta_lag3'] = df.groupby(group_cols)['LapTime_Delta'].shift(3)
     
     # Rolling average pace (using LapTime_Delta as a proxy for pace change)
     df['Rolling_avg_pace'] = df.groupby(group_cols)['LapTime_Delta'].transform(

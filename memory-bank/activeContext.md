@@ -11,6 +11,7 @@
 ## Recent Changes
 - Reworked `load_and_predict.py` to mirror `evaluate()`: loads the best `val_auc_roc` model via `load_best_model`, reconstructs preprocessing (fit on train, transform test), predicts, and writes a `prediction` CSV. Added `--new-data` and `--output` args.
 - Centralized config via `settings.py` (`load_config`, `get_tracking_uri`, `init_mlflow`) and moved MLflow tracking setup out of `main.py`/`mlflow_utils.py`.
+- **Dropped raw `LapTime (s)` from the feature set and replaced `LapTime_lag1/2/3` with `LapTime_Delta_lag1/2/3` in `preprocessing.py`.** Raw `LapTime (s)` is highly collinear with the already-provided `LapTime_Delta` (corr≈0.68; `LapTime ≈ 92.69 + 0.4985×LapTime_Delta`, R²=0.4628), so it added little. Lagged features now capture pace *change* over time (more relevant for pit decisions) than absolute pace. `Rolling_avg_pace` already used `LapTime_Delta` and is unchanged.
 - Console script entry point `f1-strategy-dataset` wired to `f1_strategy_dataset.main:main` in `pyproject.toml`.
 - Added TyreLife, Normalized_TyreLife, Stint, Position_Change, RaceProgress features and lagged/rolling TyreLife features to `preprocessing.py`.
 - Fixed compound encoding in `preprocessing.py` to include all 5 compound types (SOFT/MEDIUM/HARD/INTERMEDIATE/WET) and fill NaN compounds with the most common.
