@@ -15,8 +15,10 @@
 - Console script entry point `f1-strategy-dataset` wired to `f1_strategy_dataset.main:main` in `pyproject.toml`.
 - Added TyreLife, Normalized_TyreLife, Stint, Position_Change, RaceProgress features and lagged/rolling TyreLife features to `preprocessing.py`.
 - Fixed compound encoding in `preprocessing.py` to include all 5 compound types (SOFT/MEDIUM/HARD/INTERMEDIATE/WET) and fill NaN compounds with the most common.
+- **Extended `strategy.ipynb` EDA with interaction analysis and a linear-vs-tree baseline.** Added cells: (1) *Feature × Feature Interactions* — grouped bar charts of pit rate across `Compound × Cumulative_Degradation` (pit rate at a given degradation bin differs sharply across SOFT/HARD/WET) and `Position × LapNumber` (pit rate for a given position shifts across laps); (2) *Linear Baseline vs Tree Models* — fits LogisticRegression vs LightGBM vs CatBoost on a held-out 80/20 split and reports the AUC margin. Reproduced test-set AUC: LightGBM ~0.952, CatBoost ~0.932, LogisticRegression ~0.818 (tree margin ~0.13 AUC), empirically justifying tree models. The modeling cell replicates the package preprocessing inline (drop `LapTime`, one-hot `Compound`+`Year`, index by `Driver`/`Race`/`Year`).
 
 ## Next Steps
+- EDA justification for tree models is now complete in `strategy.ipynb` (interaction evidence + linear baseline).
 - Optimization of the Optuna search space for better AUC-ROC.
 - Re-run `tune` → `train` → `evaluate` to confirm pit predictions recover with the new features.
 - Final evaluation on the 2025 test set.

@@ -12,6 +12,7 @@
 - [x] Baseline evaluate run captured: Test Precision 0.8205, Test AUC-ROC 0.7781.
 - [x] Feature ingestion fixed: TyreLife, Normalized_TyreLife, Stint, Position_Change, RaceProgress now included; lagged/rolling TyreLife features added.
 - [x] Compound encoding fixed: INTERMEDIATE and WET compounds no longer coerced to NaN; all 5 compound types encoded, NaN compounds filled with most common.
+- [x] `strategy.ipynb` EDA extended with interaction analysis (Compound × Degradation, Position × LapNumber) and a LogisticRegression vs LightGBM vs CatBoost baseline. Reproduced test-set AUC: LightGBM ~0.952, CatBoost ~0.932, LogisticRegression ~0.818 (tree margin ~0.13 AUC), empirically justifying tree models.
 
 ## What's Left
 - [ ] Optimization of the Optuna search space for better AUC-ROC.
