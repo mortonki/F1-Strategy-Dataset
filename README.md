@@ -87,4 +87,3 @@ uv run python src/f1_strategy_dataset/load_and_predict.py --new-data custom.csv 
 - [ ] Detailed exploration of `f1_strategy_dataset_v4.csv` (e.g., INTERMEDIATE/WET compounds not covered by the SOFT/MEDIUM/HARD encoding).
 - [ ] Optimization of Optuna search space for better AUC-ROC.
 - [ ] Final evaluation on the 2025 test set.
-

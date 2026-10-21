@@ -15,6 +15,7 @@
 - [x] `strategy.ipynb` EDA extended with interaction analysis (Compound × Degradation, Position × LapNumber) and a LogisticRegression vs LightGBM vs CatBoost baseline. Reproduced test-set AUC: LightGBM ~0.952, CatBoost ~0.932, LogisticRegression ~0.818 (tree margin ~0.13 AUC), empirically justifying tree models.
 
 ## What's Left
+- [ ] Detailed exploration of `f1_strategy_dataset_v4.csv` (e.g., INTERMEDIATE/WET compounds not covered by the SOFT/MEDIUM/HARD encoding).
 - [ ] Optimization of the Optuna search space for better AUC-ROC.
 - [ ] Final evaluation on the 2025 test set.
 

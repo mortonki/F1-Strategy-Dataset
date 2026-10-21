@@ -1,3 +1,5 @@
+- Updated `README.md` with the latest project status and documentation.
+
 # Active Context
 
 ## Current Focus
