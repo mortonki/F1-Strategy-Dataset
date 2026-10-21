@@ -110,7 +110,7 @@ def preprocess_f1_data(
     
     # Convert to dense array if necessary
     if scipy.sparse.issparse(encoded_data):
-        encoded_data = cast(scipy.sparse.spmatrix, encoded_data).toarray()
+        encoded_data = cast(scipy.sparse.csr_matrix, encoded_data).toarray()
     else:
         encoded_data = np.asarray(encoded_data)
     encoded_data = cast(np.ndarray, encoded_data)
