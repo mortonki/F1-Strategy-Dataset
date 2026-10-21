@@ -6,6 +6,8 @@ It integrates with MLflow for tracking experiments and logging results.
 """
 
 import argparse
+from typing import cast
+
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import RandomizedSearchCV
@@ -101,7 +103,7 @@ def run_random_search(
     best_score = random_search.best_score_
     
     # Evaluate on validation set
-    best_model = random_search.best_estimator_
+    best_model = cast(lgb.LGBMClassifier, random_search.best_estimator_)
     y_pred_val = best_model.predict(X_val)
     y_pred_proba_val = best_model.predict_proba(X_val)
     
@@ -116,7 +118,7 @@ def run_random_search(
     print(f"Validation AUC-ROC: {val_auc_roc:.4f}")
     
     # Log to MLflow
-    log_all(best_model, type('Args', (), {
+    log_all(best_model, {
         'n_estimators': best_params.get('n_estimators', 100),
         'learning_rate': best_params.get('learning_rate', 0.05),
         'num_leaves': best_params.get('num_leaves', 31),
@@ -135,7 +137,7 @@ def run_random_search(
         'seed': best_params.get('seed', 42),
         'random_state': best_params.get('random_state', 42),
         'n_jobs': best_params.get('n_jobs', -1)
-    }), {
+    }, {
         "val_accuracy": val_accuracy,
         "val_auc_roc": val_auc_roc,
         "cv_auc_roc": best_score
