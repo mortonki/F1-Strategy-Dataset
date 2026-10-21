@@ -14,7 +14,7 @@
 
 ## Key Technical Decisions
 - **Feature Engineering:** Uses `.shift()` and `.rolling()` grouped by `Year`, `Race`, and `Driver` to ensure temporal consistency.
-- **Encoding:** `OrdinalEncoder` is used for tire compounds after converting them to categorical types.
+- **Encoding:** `OneHotEncoder` is used for tire compounds and years, handling unknown categories gracefully.
 - **Model Selection:** LightGBM is chosen for its speed and handling of categorical features.
 - **Experiment Tracking:** Every run logs parameters, metrics, and the final model artifact to MLflow.
 - **Config-Driven:** `config.yaml` + `settings.py` centralize paths and the MLflow tracking URI; relative URIs are resolved against the repo root.

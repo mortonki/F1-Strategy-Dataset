@@ -73,7 +73,7 @@ uv run python src/f1_strategy_dataset/load_and_predict.py --new-data custom.csv 
 
 ## Methodology
 - **Feature Engineering:** We use `.shift()` and `.rolling()` operations to create temporal features. Notably, we use `LapTime_Delta` instead of raw `LapTime (s)` to capture pace change and avoid high collinearity.
-- **Encoding:** Tire compounds are converted to categorical types and processed using `OrdinalEncoder`. All five compound types (SOFT, MEDIUM, HARD, INTERMEDIATE, WET) are supported.
+- **Encoding:** Tire compounds are converted to categorical types and processed using `OneHotEncoder`. All five compound types (SOFT, MEDIUM, HARD, INTERMEDIATE, WET) are supported.
 - **Model Selection:** LightGBM is our primary model due to its efficiency and superior handling of tabular data and categorical features.
 - **Evaluation:** Models are evaluated based on Precision and AUC-ROC.
 

@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import accuracy_score, roc_auc_score
 import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
@@ -65,7 +65,7 @@ def run_random_search(
     
     # Create imputer and encoder
     imputer = SimpleImputer(strategy='most_frequent')
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     
     # Preprocess training data
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)

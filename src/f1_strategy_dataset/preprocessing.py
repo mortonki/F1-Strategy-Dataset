@@ -9,14 +9,16 @@ This module contains functions for preprocessing F1 race data, including:
 
 import pandas as pd
 import numpy as np
+import scipy.sparse
+from typing import cast
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 
 
 def preprocess_f1_data(
     df: pd.DataFrame,
     imputer: SimpleImputer,
-    encoder: OrdinalEncoder,
+    encoder: OneHotEncoder,
     is_training: bool = False
 ) -> tuple:
     """
@@ -30,7 +32,7 @@ def preprocess_f1_data(
         df: Input DataFrame with F1 race data (should contain columns: Position, 
             LapTime_Delta, Cumulative_Degradation, Compound, PitNextLap)
         imputer: Trained SimpleImputer for handling missing values
-        encoder: Trained OrdinalEncoder for Compound column
+        encoder: Trained OneHotEncoder for Compound and Year columns
         is_training: If True, returns X and y separately; otherwise returns processed DataFrame
     
     Returns:
@@ -39,7 +41,7 @@ def preprocess_f1_data(
     
     Example:
         >>> imputer = SimpleImputer(strategy='most_frequent')
-        >>> encoder = OrdinalEncoder()
+        >>> encoder = OneHotEncoder(handle_unknown='ignore')
         >>> X_train, y_train = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
         >>> X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=True)
         >>> X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=True)
@@ -86,13 +88,7 @@ def preprocess_f1_data(
     # Drop Driver and Race columns (they're used for grouping but not needed as features)
     df = df.drop(['Driver', 'Race'], axis=1)
     
-    # Convert Compound column to categorical with specified order
-    categories = ['SOFT', 'MEDIUM', 'HARD', 'INTERMEDIATE', 'WET']
-    dtype = pd.CategoricalDtype(categories=categories, ordered=True)
-    df['Compound'] = df['Compound'].astype(dtype)
-    
-    # Impute missing values in Compound column. Convert the pandas Categorical to a
-    # 2D NumPy array before calling sklearn transformers.
+    # Impute missing values in Compound column.
     compound_values = df['Compound'].astype(object).to_numpy().reshape(-1, 1)
     if is_training:
         compound_imputed = np.asarray(imputer.fit_transform(compound_values))
@@ -100,17 +96,33 @@ def preprocess_f1_data(
         compound_imputed = np.asarray(imputer.transform(compound_values))
     df['Compound'] = compound_imputed[:, 0]
 
-    # Encode Compound column with OrdinalEncoder
-    compound_encoded = df['Compound'].astype(str).to_numpy().reshape(-1, 1)
-    if is_training:
-        compound_encoded_array = np.asarray(encoder.fit_transform(compound_encoded))
-    else:
-        compound_encoded_array = np.asarray(encoder.transform(compound_encoded))
-    df['Compound_encoded'] = compound_encoded_array[:, 0]
+    # One-Hot Encode Compound and Year
+    # Ensure they are treated as strings for OneHotEncoder
+    df['Compound'] = df['Compound'].astype(str)
+    df['Year'] = df['Year'].astype(str)
     
-    # Drop the original Compound column and raw LapTime (s) (highly collinear with
-    # LapTime_Delta, which is already provided in the data).
-    df.drop(['Compound', 'LapTime (s)'], axis=1, inplace=True)
+    cols_to_encode = ['Compound', 'Year']
+    
+    if is_training:
+        encoded_data = encoder.fit_transform(df[cols_to_encode])
+    else:
+        encoded_data = encoder.transform(df[cols_to_encode])
+    
+    # Convert to dense array if necessary
+    if scipy.sparse.issparse(encoded_data):
+        encoded_data = cast(scipy.sparse.spmatrix, encoded_data).toarray()
+    else:
+        encoded_data = np.asarray(encoded_data)
+    encoded_data = cast(np.ndarray, encoded_data)
+        
+    encoded_cols = encoder.get_feature_names_out(cols_to_encode)
+    
+    # Create a DataFrame from the encoded results and concatenate
+    encoded_df = pd.DataFrame(encoded_data, columns=encoded_cols, index=df.index)
+    df = pd.concat([df, encoded_df], axis=1)
+    
+    # Drop the original Compound, Year, and raw LapTime (s) columns
+    df.drop(columns=cols_to_encode + ['LapTime (s)'], inplace=True)
     
     # Separate features and target variable
     X = df.drop('PitNextLap', axis=1)

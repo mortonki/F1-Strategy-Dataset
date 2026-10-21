@@ -15,7 +15,7 @@ import os
 import logging
 from sklearn.model_selection import train_test_split
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from catboost import CatBoostClassifier
@@ -85,7 +85,7 @@ def objective(
     """
     # Create imputer and encoder
     imputer = SimpleImputer(strategy='most_frequent')
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     
     # Preprocess training data
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
@@ -240,7 +240,7 @@ def run_optuna_search(
 
     # Retrain best model
     imputer = SimpleImputer(strategy='most_frequent')
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
 

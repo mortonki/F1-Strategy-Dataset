@@ -8,7 +8,7 @@ import yaml
 import os
 import sys
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import roc_auc_score, precision_score
 import lightgbm as lgb
 from f1_strategy_dataset.preprocessing import preprocess_f1_data
@@ -40,7 +40,7 @@ def load_data(data_path):
 
 def prepare_data(train_df, val_df):
     imputer = SimpleImputer(strategy='most_frequent')
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     
     X_train, y_train, imputer, encoder = preprocess_f1_data(train_df, imputer, encoder, is_training=True)
     X_val, y_val = preprocess_f1_data(val_df, imputer, encoder, is_training=False)
@@ -136,7 +136,7 @@ def evaluate(config: dict) -> None:
 
     # Reconstruct preprocessing objects (fit on train, transform test)
     imputer = SimpleImputer(strategy='most_frequent')
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     preprocess_f1_data(train_df, imputer, encoder, is_training=True)
     X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
 

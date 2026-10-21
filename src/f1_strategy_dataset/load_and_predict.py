@@ -20,7 +20,7 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OrdinalEncoder
+from sklearn.preprocessing import OneHotEncoder
 
 from f1_strategy_dataset.main import load_data
 from f1_strategy_dataset.mlflow_utils import load_best_model
@@ -66,7 +66,7 @@ def main() -> None:
 
     # Reconstruct preprocessing objects (fit on train, transform test).
     imputer = SimpleImputer(strategy="most_frequent")
-    encoder = OrdinalEncoder()
+    encoder = OneHotEncoder(handle_unknown='ignore')
     preprocess_f1_data(train_df, imputer, encoder, is_training=True)
     X_test, y_test = preprocess_f1_data(test_df, imputer, encoder, is_training=False)
 
