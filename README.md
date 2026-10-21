@@ -4,9 +4,9 @@ This project aims to build a machine learning model to predict the next pit stop
 
 ## Problem Statement
 Predicting when a driver will pit is crucial for understanding race dynamics. Simple rule-based approaches often fail to capture the complex interplay between tire wear, fuel load, and tactical positioning. Our solution uses machine learning to incorporate:
-- **Historical Performance:** Previous laps' positions and lap times.
-- **Degradation Metrics:** Real-time tracking of car performance drops.
-- **Tire Compounds:** Analysis of the specific tire types fitted.
+- **Historical Performance:** Previous laps' positions and pace changes (`LapTime_Delta`).
+- **Degradation Metrics:** Real-time tracking of car performance drops (TyreLife, Normalized_TyreLife).
+- **Tire Compounds:** Analysis of the specific tire types fitted (including INTERMEDIATE and WET).
 - **Rolling Averages:** Smoothing out noise in lap-by-lap data for more stable features.
 
 ## Features
@@ -72,8 +72,8 @@ uv run python src/f1_strategy_dataset/load_and_predict.py --new-data custom.csv 
 ```
 
 ## Methodology
-- **Feature Engineering:** We use `.shift()` and `.rolling()` operations to create temporal features while maintaining consistency across drivers and races.
-- **Encoding:** Tire compounds are converted to categorical types and processed using `OrdinalEncoder`.
+- **Feature Engineering:** We use `.shift()` and `.rolling()` operations to create temporal features. Notably, we use `LapTime_Delta` instead of raw `LapTime (s)` to capture pace change and avoid high collinearity.
+- **Encoding:** Tire compounds are converted to categorical types and processed using `OrdinalEncoder`. All five compound types (SOFT, MEDIUM, HARD, INTERMEDIATE, WET) are supported.
 - **Model Selection:** LightGBM is our primary model due to its efficiency and superior handling of tabular data and categorical features.
 - **Evaluation:** Models are evaluated based on Precision and AUC-ROC.
 
@@ -84,6 +84,10 @@ uv run python src/f1_strategy_dataset/load_and_predict.py --new-data custom.csv 
 - [x] MLflow logging utilities functional.
 - [x] Evaluate mode added to load and assess the best MLflow model.
 - [x] Standalone inference script (`load_and_predict.py`) implemented.
-- [ ] Detailed exploration of `f1_strategy_dataset_v4.csv` (e.g., INTERMEDIATE/WET compounds not covered by the SOFT/MEDIUM/HARD encoding).
-- [ ] Optimization of Optuna search space for better AUC-ROC.
+- [x] Console script entry point (`f1-strategy-dataset`) wired in `pyproject.toml`.
+- [x] Baseline evaluate run captured: Test Precision 0.8205, Test AUC-ROC 0.7781.
+- [x] Feature ingestion fixed: TyreLife, Normalized_TyreLife, Stint, Position_Change, RaceProgress now included; lagged/rolling TyreLife features added.
+- [x] Compound encoding fixed: INTERMEDIATE and WET compounds no longer coerced to NaN; all 5 compound types encoded, NaN compounds filled with most common.
+- [x] `strategy.ipynb` EDA extended with interaction analysis (Compound × Degradation, Position × LapNumber) and a LogisticRegression vs LightGBM vs CatBoost baseline. Reproduced test-set AUC: LightGBM ~0.952, CatBoost ~0.932, LogisticRegression ~0.818 (tree margin ~0.13 AUC), empirically justifying tree models.
+- [ ] Optimization of the Optuna search space for better AUC-ROC.
 - [ ] Final evaluation on the 2025 test set.
