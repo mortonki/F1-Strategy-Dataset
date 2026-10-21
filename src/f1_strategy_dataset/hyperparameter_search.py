@@ -10,6 +10,7 @@ from typing import cast
 
 import pandas as pd
 import numpy as np
+from sklearn.base import BaseEstimator
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
@@ -84,7 +85,7 @@ def run_random_search(
     
     # Create RandomizedSearchCV
     random_search = RandomizedSearchCV(
-        estimator=lgb_model,
+        estimator=cast(BaseEstimator, lgb_model),
         param_distributions=param_grids,
         n_iter=n_iter,
         cv=3,
