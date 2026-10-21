@@ -104,8 +104,8 @@ def run_random_search(
     
     # Evaluate on validation set
     best_model = cast(lgb.LGBMClassifier, random_search.best_estimator_)
-    y_pred_val = best_model.predict(X_val)
-    y_pred_proba_val = best_model.predict_proba(X_val)
+    y_pred_val = np.asarray(best_model.predict(X_val))
+    y_pred_proba_val = np.asarray(best_model.predict_proba(X_val))
     
     val_accuracy = accuracy_score(y_val, y_pred_val)
     val_auc_roc = roc_auc_score(y_val, y_pred_proba_val[:, 1])
